@@ -1,7 +1,9 @@
 // D1 테이블 한 줄(row)의 모양. migrations/0001_init.sql 과 맞춥니다.
 
-export type MemberRole = "guardian" | "student";
-export type ManageMode = "guardian" | "self";
+import type { ManageMode, MemberRole } from "../../src/lib/permissions";
+
+// 역할·관리 방식은 화면과 함께 쓰므로 src/lib/permissions.ts 에 정의합니다.
+export type { ManageMode, MemberRole };
 export type QuestionCount = 30 | 40 | 50;
 
 export interface Family {
@@ -62,4 +64,13 @@ export interface Word {
 /** 단어와 품사별 뜻을 함께 담은 모양 (화면에서 바로 쓰기 좋게). */
 export interface WordWithMeanings extends Word {
   meanings: Meaning[];
+}
+
+/** 로그인 세션 (0002_session.sql). 토큰 원문은 저장하지 않습니다. */
+export interface Session {
+  token_hash: string;
+  family_id: number;
+  member_id: number | null;
+  created_at: string;
+  expires_at: string;
 }

@@ -23,4 +23,11 @@ npx wrangler d1 migrations apply oeword --remote   # 배포 D1에 적용 (사람
 | | `test_item` | 문항(단어·방향·학생 답·정답 여부) |
 | | `word_stat` | 학생·단어별 맞힘·틀림 횟수, 마지막 결과, 마지막으로 본 날 |
 
+## 테이블 (0002_session.sql)
+
+| 테이블 | 내용 |
+| --- | --- |
+| `session` | 로그인 세션 (토큰의 SHA-256 해시, 가족, 고른 구성원, 만료 시각) |
+| `login_failure` | 가족 비밀번호를 틀린 시각 (짧은 시간에 여러 번 틀리면 잠시 막기) |
+
 데이터 모듈 테스트(`worker/db/*.test.ts`)는 Node 내장 SQLite에 이 폴더의 SQL을 그대로 적용해서 돌립니다.

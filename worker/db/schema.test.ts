@@ -6,9 +6,11 @@ const TABLES = [
   "day",
   "family",
   "family_settings",
+  "login_failure",
   "meaning",
   "member",
   "schedule",
+  "session",
   "test",
   "test_day",
   "test_item",
@@ -21,7 +23,7 @@ describe("migrations", () => {
     expect(migrationFiles()[0]).toBe("0001_init.sql");
   });
 
-  it("이슈 #2 의 테이블을 모두 만든다", () => {
+  it("이슈 #2·#3 의 테이블을 모두 만든다", () => {
     const { sqlite } = createTestDb();
     const rows = sqlite
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
