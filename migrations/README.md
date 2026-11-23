@@ -8,4 +8,19 @@ npx wrangler d1 migrations apply oeword --local    # 로컬 D1에 적용
 npx wrangler d1 migrations apply oeword --remote   # 배포 D1에 적용 (사람 확인 후)
 ```
 
-첫 스키마는 #2(D1 데이터 구조 v1)에서 만듭니다.
+한 번 원격에 적용한 파일은 고치지 않습니다. 바꿀 내용이 있으면 새 번호의 파일을 만듭니다.
+
+## 테이블 (0001_init.sql)
+
+| 구분 | 테이블 | 내용 |
+| --- | --- | --- |
+| 가족 | `family` | 가족 이름, 가족 비밀번호 해시 |
+| | `member` | 구성원 이름, 역할(`guardian` 보호자 / `student` 학생) |
+| | `family_settings` | 관리 방식(`guardian` 보호자 관리 / `self` 혼자 관리), 문제 수(30·40·50) |
+| 단어장 (가족 공용) | `book` › `day` › `word` › `meaning` | 단어장 › Day › 단어 › 품사별 뜻 |
+| 학생별 | `schedule` | 학원 요일·시작 범위·단어장 (학생마다 하나) |
+| | `test`, `test_day` | 시험(방식·형식·화면/종이·시험 번호)과 시험 범위(Day) |
+| | `test_item` | 문항(단어·방향·학생 답·정답 여부) |
+| | `word_stat` | 학생·단어별 맞힘·틀림 횟수, 마지막 결과, 마지막으로 본 날 |
+
+데이터 모듈 테스트(`worker/db/*.test.ts`)는 Node 내장 SQLite에 이 폴더의 SQL을 그대로 적용해서 돌립니다.
