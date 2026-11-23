@@ -13,9 +13,9 @@
     {
       "binding": "DB",
       "database_name": "oeword",
-      // 배포 전: `npx wrangler d1 create oeword` 로 만든 뒤 나온 database_id 로 바꿉니다.
+      // `npx wrangler d1 create oeword` 로 만든 배포용 D1 (APAC).
       // 로컬 개발(npm run dev)은 이 값과 상관없이 로컬 D1을 씁니다.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "464c8d30-2fa8-4e37-8c40-6fdd52052730",
       "migrations_dir": "migrations"
     }
   ],
