@@ -23,18 +23,23 @@
 | 출력 | 인쇄용 화면(A4, `@media print`), 아이패드 AirPrint |
 | 품질 | oxlint, Vitest |
 
-## 3. 폴더 구조 (예정, #1에서 확정)
+## 3. 폴더 구조
 
 ```txt
+index.html      화면 진입점 (Vite)
+public/         그대로 배포되는 정적 파일 (아이콘 등)
 src/            화면 (React)
   pages/        화면 단위 컴포넌트
   components/   공용 컴포넌트
   lib/          화면·서버 공용 순수 로직 (채점, 출제, 일정 계산)
-worker/         Workers API
+worker/         Workers API (index.ts 가 /api/* 를 받음)
   db/           D1 읽기·쓰기는 전부 여기에만 (데이터 모듈)
 migrations/     D1 마이그레이션 SQL (0001_init.sql …)
 docs/worklog/   작업일지 (YYYY-MM-DD.md)
+wrangler.jsonc  Worker·정적 파일·D1 바인딩(DB) 설정
 ```
+
+`worker-configuration.d.ts` 는 `npm run cf-typegen` 으로 만드는 파일입니다. `wrangler.jsonc` 를 바꾸면 다시 만들어 함께 커밋합니다.
 
 ## 4. 꼭 지킬 설계 원칙
 
@@ -85,7 +90,9 @@ docs/worklog/   작업일지 (YYYY-MM-DD.md)
 
 아이패드·폰 실기기 확인, AirPrint 출력, 마이그레이션 적용
 
-## 8. 명령어 (#1 이후 채움)
+## 8. 명령어
+
+Node.js 22 기준입니다 (`.nvmrc`).
 
 ```sh
 npm install
@@ -93,6 +100,7 @@ npm run dev        # 로컬 개발 (Vite + Workers)
 npm run build
 npm run lint       # oxlint
 npm run test       # Vitest
+npm run cf-typegen # wrangler.jsonc 바꾼 뒤 Worker 타입 다시 만들기
 npx wrangler d1 migrations apply oeword --local    # 로컬 D1
 npx wrangler d1 migrations apply oeword --remote   # 배포 D1 (사람 확인 후)
 npm run deploy     # 배포 (사람 확인 후)
