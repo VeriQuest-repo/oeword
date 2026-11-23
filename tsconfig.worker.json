@@ -14,5 +14,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": ["worker", "src/lib"]
+  "include": ["worker", "src/lib"],
+  // 테스트는 Node(node:sqlite)에서 돌므로 tsconfig.test.json 에서 따로 검사합니다.
+  "exclude": ["worker/**/*.test.ts", "worker/db/testing"]
 }

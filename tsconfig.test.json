@@ -1,0 +1,11 @@
+{
+  // worker/ 테스트용: Worker 타입(D1Database 등)과 Node 타입(node:sqlite)을 함께 씁니다.
+  "extends": "./tsconfig.worker.json",
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo",
+    "types": ["./worker-configuration.d.ts", "node"]
+  },
+  "include": ["worker/**/*.test.ts", "worker/db/testing"],
+  "exclude": []
+}
