@@ -12,6 +12,37 @@ export async function createFamily(db: D1Database, name: string): Promise<Family
   return family;
 }
 
+/** 처음 쓰는지(가족이 하나도 없는지) 확인할 때 씁니다. */
+export async function countFamilies(db: D1Database): Promise<number> {
+  const row = await db.prepare("SELECT count(*) AS n FROM family").first<{ n: number }>();
+  return row?.n ?? 0;
+}
+
+/**
+ * 첫 버전은 한 가족만 씁니다. 비밀번호를 정한 가족 중 가장 먼저 만든 가족을 로그인 대상으로 합니다.
+ * 여러 가족을 받게 되면(회원가입) 이 부분을 바꿉니다.
+ */
+export async function getLoginFamily(
+  db: D1Database,
+): Promise<{ id: number; password_hash: string } | null> {
+  return db
+    .prepare(
+      "SELECT id, password_hash FROM family WHERE password_hash IS NOT NULL ORDER BY id LIMIT 1",
+    )
+    .first<{ id: number; password_hash: string }>();
+}
+
+export async function setPasswordHash(
+  db: D1Database,
+  familyId: number,
+  passwordHash: string,
+): Promise<void> {
+  await db
+    .prepare("UPDATE family SET password_hash = ? WHERE id = ?")
+    .bind(passwordHash, familyId)
+    .run();
+}
+
 export async function getFamily(db: D1Database, familyId: number): Promise<Family | null> {
   return db
     .prepare("SELECT id, name, created_at FROM family WHERE id = ?")
@@ -44,6 +75,20 @@ export async function listMembers(db: D1Database, familyId: number): Promise<Mem
     .bind(familyId)
     .all<Member>();
   return results;
+}
+
+export async function getMember(
+  db: D1Database,
+  familyId: number,
+  memberId: number,
+): Promise<Member | null> {
+  return db
+    .prepare(
+      `SELECT id, family_id, name, role, sort_order, created_at FROM member
+       WHERE family_id = ? AND id = ?`,
+    )
+    .bind(familyId, memberId)
+    .first<Member>();
 }
 
 export async function getSettings(db: D1Database, familyId: number): Promise<FamilySettings | null> {

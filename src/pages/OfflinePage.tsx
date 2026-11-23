@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import StatusBadge from "../components/StatusBadge";
+import { Logo, PrimaryButton } from "../components/ui";
 import { type ServerStatus, toServerStatus } from "../lib/health";
 
-export default function HomePage() {
+// 처음 상태(/api/session)를 못 불러왔을 때. 서버·데이터베이스 중 어디가 문제인지 보여 줍니다.
+export default function OfflinePage({ onRetry }: { onRetry: () => void }) {
   const [status, setStatus] = useState<ServerStatus>("checking");
 
   useEffect(() => {
@@ -21,13 +23,11 @@ export default function HomePage() {
   }, []);
 
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-slate-50 px-6 py-10 text-center">
-      <h1 className="text-5xl font-bold tracking-tight text-indigo-600 sm:text-6xl">외워드</h1>
-      <p className="max-w-md text-lg leading-relaxed text-slate-600">
-        단어장을 한 번 입력하면, 직접 떠올려 답하며 외우는 가족용 영단어 서비스
-      </p>
+    <main className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-slate-50 px-6 text-center">
+      <Logo className="text-5xl" />
+      <p className="text-lg text-slate-600">외워드를 불러오지 못했어요.</p>
       <StatusBadge status={status} />
-      <p className="text-sm text-slate-400">지금은 준비 중이에요.</p>
+      <PrimaryButton onClick={onRetry}>다시 시도</PrimaryButton>
     </main>
   );
 }
