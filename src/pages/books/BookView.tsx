@@ -323,9 +323,12 @@ function DayRow({
         <button
           type="button"
           onClick={() => onOpen(day)}
-          className="min-h-14 min-w-0 flex-1 basis-full rounded-2xl px-2 text-left hover:bg-indigo-50 sm:basis-auto"
+          className="flex min-h-14 min-w-0 flex-1 basis-full items-center gap-2 rounded-2xl px-2 text-left hover:bg-indigo-50 sm:basis-auto"
         >
-          {label}
+          <span className="min-w-0 flex-1">{label}</span>
+          <span aria-hidden className="text-2xl text-slate-300">
+            ›
+          </span>
         </button>
       ) : (
         <div className="min-w-0 flex-1 basis-full px-2 sm:basis-auto">{label}</div>

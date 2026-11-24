@@ -1,6 +1,7 @@
 // 화면에서 /api/* 를 부르는 함수 (화면 전용, 서버에서는 쓰지 않음). 로그인·구성원 선택 (#3).
 import type { BookDetail, BookSummary, DaySummary } from "./lib/books";
 import type { SessionResponse, SetupInput } from "./lib/session";
+import type { DayWords, WordInput, WordView } from "./lib/words";
 
 /** 서버가 돌려준 한국어 문구를 담은 오류. 화면에 그대로 보여 줍니다. */
 export class ApiRequestError extends Error {
@@ -56,6 +57,13 @@ export const api = {
   moveDay: (dayId: number, direction: "up" | "down") =>
     request<BookDetail>(`/api/days/${dayId}/move`, "POST", { direction }),
   deleteDay: (dayId: number) => request<BookDetail>(`/api/days/${dayId}`, "DELETE"),
+
+  // 단어 (#5)
+  dayWords: (dayId: number) => request<DayWords>(`/api/days/${dayId}/words`, "GET"),
+  addWord: (dayId: number, input: WordInput) =>
+    request<{ word: WordView }>(`/api/days/${dayId}/words`, "POST", input),
+  updateWord: (wordId: number, input: WordInput) => request<{ word: WordView }>(`/api/words/${wordId}`, "PUT", input),
+  deleteWord: (wordId: number) => request<{ ok: true }>(`/api/words/${wordId}`, "DELETE"),
 };
 
 /** 오류를 화면에 보여 줄 문구로 바꿉니다. */

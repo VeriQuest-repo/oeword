@@ -283,3 +283,49 @@ export async function swapDayNumbers(db: D1Database, a: Day, b: Day): Promise<vo
 export async function deleteDay(db: D1Database, dayId: number): Promise<void> {
   await db.prepare("DELETE FROM day WHERE id = ?").bind(dayId).run();
 }
+
+// 단어 입력·수정 (#5) ---------------------------------------------------
+
+/** 단어 하나 (가족 범위 확인). 어느 Day 에 있는지도 함께. */
+export async function getWordRow(db: D1Database, familyId: number, wordId: number): Promise<Word | null> {
+  return db
+    .prepare(
+      `SELECT w.id, w.day_id, w.text, w.sort_order, w.created_at FROM word w
+       JOIN day d ON d.id = w.day_id JOIN book b ON b.id = d.book_id
+       WHERE b.family_id = ? AND w.id = ?`,
+    )
+    .bind(familyId, wordId)
+    .first<Word>();
+}
+
+/** 새 단어는 Day 맨 뒤에 붙습니다. */
+export async function nextWordSortOrder(db: D1Database, dayId: number): Promise<number> {
+  const row = await db
+    .prepare("SELECT coalesce(max(sort_order), -1) + 1 AS next FROM word WHERE day_id = ?")
+    .bind(dayId)
+    .first<{ next: number }>();
+  return row?.next ?? 0;
+}
+
+/**
+ * 단어 글자와 뜻을 한 번에 바꿉니다. 단어 id 는 그대로라 시험·기록은 이어집니다.
+ * 뜻은 모두 지우고 새로 넣습니다 (뜻 id 를 가리키는 표는 없습니다).
+ */
+export async function updateWord(
+  db: D1Database,
+  wordId: number,
+  input: { text: string; meanings: MeaningInput[] },
+): Promise<void> {
+  if (input.meanings.length === 0) throw new Error("뜻이 하나 이상 있어야 합니다.");
+  const insert = db.prepare("INSERT INTO meaning (word_id, pos, text, sort_order) VALUES (?, ?, ?, ?)");
+  await db.batch([
+    db.prepare("UPDATE word SET text = ? WHERE id = ?").bind(input.text, wordId),
+    db.prepare("DELETE FROM meaning WHERE word_id = ?").bind(wordId),
+    ...input.meanings.map((m, i) => insert.bind(wordId, m.pos, m.text, i)),
+  ]);
+}
+
+/** 단어를 지웁니다. 뜻·기록도 함께 지워집니다 (ON DELETE CASCADE). */
+export async function deleteWord(db: D1Database, wordId: number): Promise<void> {
+  await db.prepare("DELETE FROM word WHERE id = ?").bind(wordId).run();
+}
