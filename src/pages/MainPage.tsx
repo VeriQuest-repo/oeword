@@ -3,10 +3,11 @@ import { Logo, SubtleButton } from "../components/ui";
 import { api } from "../api";
 import type { MenuKey } from "../lib/permissions";
 import type { SessionResponse } from "../lib/session";
+import BooksPage from "./books/BooksPage";
 
 type Ready = Extract<SessionResponse, { state: "ready" }>;
 
-// 메뉴가 있는 화면. 각 메뉴의 실제 화면은 다음 이슈(#4~)에서 만듭니다.
+// 메뉴가 있는 화면. 단어장(#4~#6) 외의 메뉴 화면은 다음 이슈에서 만듭니다.
 export default function MainPage({
   session,
   onChange,
@@ -64,6 +65,8 @@ export default function MainPage({
               오늘 할 일과 다음 학원 범위는 곧 여기에 보여요.
             </p>
           </section>
+        ) : item?.key === "books" && session.canManage ? (
+          <BooksPage />
         ) : (
           <section>
             <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">{item?.label}</h1>
