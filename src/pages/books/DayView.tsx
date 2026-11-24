@@ -3,14 +3,16 @@ import { api, errorMessage } from "../../api";
 import WordEditor from "../../components/WordEditor";
 import { BackButton, ConfirmButton, ErrorText, OutlineButton, Panel } from "../../components/ui";
 import { dayLabel } from "../../lib/books";
+import PastePanel from "./PastePanel";
 import type { DayWords, WordView } from "../../lib/words";
 
-// Day 하나의 단어: 직접 입력, 고치기, 삭제 (#5)
+// Day 하나의 단어: 직접 입력·고치기·삭제 (#5), 엑셀 붙여넣기 (#6)
 export default function DayView({ dayId, onBack }: { dayId: number; onBack: (bookId: number | null) => void }) {
   const [data, setData] = useState<DayWords | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  const [mode, setMode] = useState<"type" | "paste">("type");
 
   useEffect(() => {
     api
@@ -55,8 +57,42 @@ export default function DayView({ dayId, onBack }: { dayId: number; onBack: (boo
       <ErrorText message={error} />
 
       <Panel>
-        <h2 className="mb-4 text-lg font-semibold text-slate-900">단어 넣기</h2>
-        <WordEditor submitLabel="저장하고 다음 단어" resetAfterSave onSave={add} />
+        <div role="tablist" aria-label="단어 넣는 방법" className="mb-4 flex gap-1 rounded-2xl bg-slate-100 p-1">
+          {(
+            [
+              ["type", "직접 입력"],
+              ["paste", "엑셀 붙여넣기"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={mode === key}
+              onClick={() => {
+                setMode(key);
+                setSaved(null);
+              }}
+              className={`min-h-12 flex-1 rounded-xl px-3 text-base font-semibold ${
+                mode === key ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {mode === "type" ? (
+          <WordEditor submitLabel="저장하고 다음 단어" resetAfterSave onSave={add} />
+        ) : (
+          <PastePanel
+            dayId={day.id}
+            existing={words.map((w) => w.text)}
+            onSaved={(next, count) => {
+              setData(next);
+              setSaved(`${count}단어 저장했어요.`);
+            }}
+          />
+        )}
         {saved && (
           <p role="status" className="mt-3 text-base text-emerald-700">
             {saved}

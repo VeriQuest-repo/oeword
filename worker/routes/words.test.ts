@@ -102,3 +102,41 @@ describe("단어 API", () => {
     expect((sqlite.prepare("SELECT count(*) AS n FROM word").get() as { n: number }).n).toBe(0);
   });
 });
+
+describe("여러 단어 한 번에 넣기", () => {
+  it("넣은 순서대로 기존 단어 뒤에 붙는다", async () => {
+    const { db, guardian, dayId } = await setup();
+    await call(db, `/api/days/${dayId}/words`, { method: "POST", body: PRESENT, cookie: guardian });
+    const res = await call(db, `/api/days/${dayId}/words/bulk`, {
+      method: "POST",
+      body: {
+        words: [
+          { text: "give", senses: [{ pos: "동사", meanings: ["(~을) 주다"] }] },
+          { text: "cat", senses: [{ pos: "명사", meanings: ["고양이"] }] },
+        ],
+      },
+      cookie: guardian,
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.words.map((w: { text: string }) => w.text)).toEqual(["present", "give", "cat"]);
+    expect(res.body.words[1].senses).toEqual([{ pos: "동사", meanings: ["(~을) 주다"] }]);
+  });
+
+  it("하나라도 잘못되면 아무것도 넣지 않고 몇 번째인지 알려 준다", async () => {
+    const { db, guardian, dayId, sqlite } = await setup();
+    const res = await call(db, `/api/days/${dayId}/words/bulk`, {
+      method: "POST",
+      body: { words: [PRESENT, { text: "dog", senses: [{ pos: "", meanings: ["개"] }] }] },
+      cookie: guardian,
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain("2번째 단어");
+    expect((sqlite.prepare("SELECT count(*) AS n FROM word").get() as { n: number }).n).toBe(0);
+  });
+
+  it("학생은 넣을 수 없다", async () => {
+    const { db, student, dayId } = await setup();
+    const res = await call(db, `/api/days/${dayId}/words/bulk`, { method: "POST", body: { words: [PRESENT] }, cookie: student });
+    expect(res.status).toBe(403);
+  });
+});

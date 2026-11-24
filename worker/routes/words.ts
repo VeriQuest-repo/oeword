@@ -4,9 +4,19 @@
 //   POST   /api/days/:dayId/words   단어 추가 { text, senses: [{ pos, meanings: [] }] }
 //   PUT    /api/words/:wordId       단어 고치기 (같은 모양)
 //   DELETE /api/words/:wordId       단어 삭제
-import { checkWordInput, type DayWords, flattenSenses, groupMeanings, type WordView } from "../../src/lib/words";
+//   POST   /api/days/:dayId/words/bulk  여러 단어 한 번에 넣기 { words: [{ text, senses }] } (#6)
+import { PASTE_MAX_WORDS } from "../../src/lib/paste";
+import {
+  checkWordInput,
+  type DayWords,
+  flattenSenses,
+  groupMeanings,
+  type WordInput,
+  type WordView,
+} from "../../src/lib/words";
 import {
   addWord,
+  addWords,
   deleteWord,
   getDayRow,
   getWordRow,
@@ -84,6 +94,38 @@ export const WORD_ROUTES: Route[] = [
         if (!word) return WORD_NOT_FOUND();
         await deleteWord(db, word.id);
         return json({ ok: true });
+      },
+    },
+  },
+  {
+    pattern: "/api/days/:dayId/words/bulk",
+    methods: {
+      async POST(request, db, now, { dayId }) {
+        const actor = await requireActor(request, db, now, { manage: true });
+        if (actor instanceof Response) return actor;
+        const body = await readJson(request);
+        const list = (body as { words?: unknown } | undefined)?.words;
+        if (!Array.isArray(list) || list.length === 0) {
+          return fail(400, "invalid_input", "넣을 단어가 없어요.");
+        }
+        if (list.length > PASTE_MAX_WORDS) {
+          return fail(400, "invalid_input", `한 번에 ${PASTE_MAX_WORDS}단어까지 넣을 수 있어요.`);
+        }
+        const words: WordInput[] = [];
+        for (const [index, item] of list.entries()) {
+          const checked = checkWordInput(item);
+          if (!checked.ok) return fail(400, "invalid_input", `${index + 1}번째 단어: ${checked.message}`);
+          words.push(checked.value);
+        }
+        const day = await getDayRow(db, actor.familyId, dayId!);
+        if (!day) return DAY_NOT_FOUND();
+
+        await addWords(
+          db,
+          day.id,
+          words.map((w) => ({ text: w.text, meanings: flattenSenses(w.senses) })),
+        );
+        return json(await dayWords(db, actor.familyId, day.id), { status: 201 });
       },
     },
   },

@@ -329,3 +329,29 @@ export async function updateWord(
 export async function deleteWord(db: D1Database, wordId: number): Promise<void> {
   await db.prepare("DELETE FROM word WHERE id = ?").bind(wordId).run();
 }
+
+// 여러 단어 붙여넣기 (#6) -------------------------------------------------
+
+/**
+ * 여러 단어를 한 트랜잭션으로 Day 맨 뒤에 넣습니다. 하나라도 실패하면 아무것도 들어가지 않습니다.
+ * (addWord 와 같이, batch 안에서는 방금 넣은 단어가 word 표의 가장 큰 id 입니다.)
+ */
+export async function addWords(
+  db: D1Database,
+  dayId: number,
+  words: { text: string; meanings: MeaningInput[] }[],
+): Promise<void> {
+  if (words.length === 0) return;
+  if (words.some((w) => w.meanings.length === 0)) throw new Error("뜻이 하나 이상 있어야 합니다.");
+  const start = await nextWordSortOrder(db, dayId);
+  const insertWord = db.prepare("INSERT INTO word (day_id, text, sort_order) VALUES (?, ?, ?)");
+  const insertMeaning = db.prepare(
+    "INSERT INTO meaning (word_id, pos, text, sort_order) VALUES ((SELECT max(id) FROM word), ?, ?, ?)",
+  );
+  await db.batch(
+    words.flatMap((w, i) => [
+      insertWord.bind(dayId, w.text, start + i),
+      ...w.meanings.map((m, j) => insertMeaning.bind(m.pos, m.text, j)),
+    ]),
+  );
+}
