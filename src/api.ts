@@ -1,4 +1,5 @@
 // 화면에서 /api/* 를 부르는 함수 (화면 전용, 서버에서는 쓰지 않음). 로그인·구성원 선택 (#3).
+import type { BookDetail, BookSummary, DaySummary } from "./lib/books";
 import type { SessionResponse, SetupInput } from "./lib/session";
 
 /** 서버가 돌려준 한국어 문구를 담은 오류. 화면에 그대로 보여 줍니다. */
@@ -40,4 +41,24 @@ export const api = {
   logout: () => request<SessionResponse>("/api/logout", "POST", {}),
   chooseMember: (memberId: number | null) =>
     request<SessionResponse>("/api/session/member", "PUT", { memberId }),
+
+  // 단어장·Day (#4)
+  books: (includeArchived = false) =>
+    request<{ books: BookSummary[] }>(`/api/books${includeArchived ? "?archived=1" : ""}`, "GET"),
+  createBook: (title: string) => request<BookDetail>("/api/books", "POST", { title }),
+  book: (bookId: number) => request<BookDetail>(`/api/books/${bookId}`, "GET"),
+  updateBook: (bookId: number, change: { title?: string; archived?: boolean }) =>
+    request<BookDetail>(`/api/books/${bookId}`, "PATCH", change),
+  createDay: (bookId: number, input: { dayNumber?: string; title?: string }) =>
+    request<BookDetail & { day: DaySummary }>(`/api/books/${bookId}/days`, "POST", input),
+  updateDay: (dayId: number, change: { dayNumber?: string; title?: string }) =>
+    request<BookDetail>(`/api/days/${dayId}`, "PATCH", change),
+  moveDay: (dayId: number, direction: "up" | "down") =>
+    request<BookDetail>(`/api/days/${dayId}/move`, "POST", { direction }),
+  deleteDay: (dayId: number) => request<BookDetail>(`/api/days/${dayId}`, "DELETE"),
 };
+
+/** 오류를 화면에 보여 줄 문구로 바꿉니다. */
+export function errorMessage(e: unknown): string {
+  return e instanceof ApiRequestError ? e.message : "잠시 문제가 생겼어요. 다시 해 주세요.";
+}
