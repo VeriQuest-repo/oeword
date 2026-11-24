@@ -63,6 +63,8 @@ export const api = {
   addWord: (dayId: number, input: WordInput) =>
     request<{ word: WordView }>(`/api/days/${dayId}/words`, "POST", input),
   updateWord: (wordId: number, input: WordInput) => request<{ word: WordView }>(`/api/words/${wordId}`, "PUT", input),
+  addWords: (dayId: number, words: WordInput[]) =>
+    request<DayWords>(`/api/days/${dayId}/words/bulk`, "POST", { words }),
   deleteWord: (wordId: number) => request<{ ok: true }>(`/api/words/${wordId}`, "DELETE"),
 };
 
