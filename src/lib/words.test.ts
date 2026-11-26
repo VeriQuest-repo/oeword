@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkWordInput, flattenSenses, groupMeanings, normalizePos, sensesText } from "./words";
+import { checkWordInput, flattenSenses, groupMeanings, mergeSenses, normalizePos, sensesText, wordKey } from "./words";
 
 describe("normalizePos", () => {
   it("줄임말과 괄호를 한국어 품사 이름으로 맞춘다", () => {
@@ -96,5 +96,25 @@ describe("펼치기·묶기", () => {
     ];
     expect(groupMeanings(flattenSenses(senses))).toEqual(senses);
     expect(sensesText(senses)).toBe("[명사] 선물, 현재 / [형용사] 출석한, 현재의");
+  });
+});
+
+describe("같은 단어 합치기 (#35)", () => {
+  it("대소문자·앞뒤 공백을 무시하고 같은 단어로 본다", () => {
+    expect(wordKey("  Present ")).toBe(wordKey("present"));
+  });
+
+  it("기존 순서를 지키고 새 품사·뜻은 뒤에, 같은 뜻은 한 번만", () => {
+    const merged = mergeSenses(
+      [{ pos: "명사", meanings: ["선물", "현재"] }],
+      [
+        { pos: "동사", meanings: ["주다"] },
+        { pos: "명사", meanings: ["현재", "선사"] },
+      ],
+    );
+    expect(merged).toEqual([
+      { pos: "명사", meanings: ["선물", "현재", "선사"] },
+      { pos: "동사", meanings: ["주다"] },
+    ]);
   });
 });

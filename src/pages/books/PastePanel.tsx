@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { api, errorMessage } from "../../api";
 import { ErrorText, inputClass, OutlineButton, PrimaryButton } from "../../components/ui";
 import { groupRows, PASTE_MAX_WORDS, parseRows, type PasteRow, type PasteWord, toWordInputs } from "../../lib/paste";
-import type { DayWords } from "../../lib/words";
+import { type DayWords, wordKey } from "../../lib/words";
 
 // 엑셀에서 복사한 단어·품사·뜻 3칸을 붙여넣어 한 번에 넣기 (#6)
 // 붙여넣기 → 미리보기(단어별로 묶임, 칸이 빠진 줄 표시·고치기) → 저장
@@ -14,7 +14,8 @@ export default function PastePanel({
   dayId: number;
   /** 이 Day 에 이미 있는 단어 (겹치면 알려 줌) */
   existing: string[];
-  onSaved: (data: DayWords, count: number) => void;
+  /** mergedCount: 이미 있던 단어에 뜻을 합친 수 (#35) */
+  onSaved: (data: DayWords, count: number, mergedCount: number) => void;
 }) {
   const [text, setText] = useState("");
   const [rows, setRows] = useState<PasteRow[] | null>(null);
@@ -22,7 +23,7 @@ export default function PastePanel({
   const [busy, setBusy] = useState(false);
 
   const words = useMemo(() => (rows ? groupRows(rows) : []), [rows]);
-  const existingSet = useMemo(() => new Set(existing.map((w) => w.toLowerCase())), [existing]);
+  const existingSet = useMemo(() => new Set(existing.map(wordKey)), [existing]);
   const problemCount = words.reduce((n, w) => n + w.problems.length, 0);
 
   function preview(source = text) {
@@ -41,7 +42,7 @@ export default function PastePanel({
       const data = await api.addWords(dayId, inputs);
       setRows(null);
       setText("");
-      onSaved(data, inputs.length);
+      onSaved(data, inputs.length, inputs.filter((w) => existingSet.has(wordKey(w.text))).length);
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -110,7 +111,7 @@ export default function PastePanel({
             key={word.rows[0]!.line}
             index={index}
             word={word}
-            duplicate={existingSet.has(word.text.toLowerCase())}
+            duplicate={existingSet.has(wordKey(word.text))}
             onChangeRow={updateRow}
             onRemove={() => removeRows(word.rows.map((r) => r.line))}
           />
@@ -165,7 +166,7 @@ function PasteCard({
               </li>
             ))}
           </ul>
-          {duplicate && <p className="mt-1 text-sm text-amber-700">이 Day에 이미 있는 단어예요. 두 번 넣지 않으려면 빼 주세요.</p>}
+          {duplicate && <p className="mt-1 text-sm text-amber-700">이 Day에 이미 있는 단어예요. 저장하면 기존 단어에 뜻을 합쳐요.</p>}
           {word.notes.map((note) => (
             <p key={note} className="mt-1 text-sm text-slate-500">
               {note}

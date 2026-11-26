@@ -103,6 +103,91 @@ describe("단어 API", () => {
   });
 });
 
+describe("같은 Day 중복 단어 (#35)", () => {
+  it("같은 단어를 다시 넣으면 새로 만들지 않고 기존 단어에 뜻을 더한다 (대소문자 무시)", async () => {
+    const { db, guardian, dayId } = await setup();
+    const first = await call(db, `/api/days/${dayId}/words`, { method: "POST", body: PRESENT, cookie: guardian });
+    const again = await call(db, `/api/days/${dayId}/words`, {
+      method: "POST",
+      body: {
+        text: "Present",
+        senses: [
+          { pos: "명사", meanings: ["선물", "현재 시제"] },
+          { pos: "동사", meanings: ["주다"] },
+        ],
+      },
+      cookie: guardian,
+    });
+    expect(again.status).toBe(200);
+    expect(again.body.merged).toBe(true);
+    const expected = {
+      id: first.body.word.id,
+      text: "present",
+      senses: [
+        { pos: "명사", meanings: ["선물", "현재", "현재 시제"] },
+        { pos: "형용사", meanings: ["출석한", "현재의"] },
+        { pos: "동사", meanings: ["주다"] },
+      ],
+    };
+    expect(again.body.word).toEqual(expected);
+    const list = await call(db, `/api/days/${dayId}/words`, { cookie: guardian });
+    expect(list.body.words).toEqual([expected]);
+  });
+
+  it("다른 Day 의 같은 단어는 따로 넣을 수 있다", async () => {
+    const { db, guardian, dayId } = await setup();
+    const day = await call(db, `/api/days/${dayId}/words`, { cookie: guardian });
+    const other = await call(db, `/api/books/${day.body.day.bookId}/days`, { method: "POST", body: {}, cookie: guardian });
+    await call(db, `/api/days/${dayId}/words`, { method: "POST", body: PRESENT, cookie: guardian });
+    const res = await call(db, `/api/days/${other.body.day.id}/words`, { method: "POST", body: PRESENT, cookie: guardian });
+    expect(res.status).toBe(201);
+  });
+
+  it("고치기로 같은 Day 의 다른 단어와 철자가 같아지면 409", async () => {
+    const { db, guardian, dayId } = await setup();
+    await call(db, `/api/days/${dayId}/words`, { method: "POST", body: PRESENT, cookie: guardian });
+    const cat = await call(db, `/api/days/${dayId}/words`, {
+      method: "POST",
+      body: { text: "cat", senses: [{ pos: "명사", meanings: ["고양이"] }] },
+      cookie: guardian,
+    });
+    const id = cat.body.word.id;
+    const res = await call(db, `/api/words/${id}`, {
+      method: "PUT",
+      body: { text: "PRESENT", senses: [{ pos: "명사", meanings: ["고양이"] }] },
+      cookie: guardian,
+    });
+    expect(res.status).toBe(409);
+    expect(res.body.message).toContain("이미");
+    // 자기 철자의 대소문자만 바꾸는 건 된다
+    const self = await call(db, `/api/words/${id}`, {
+      method: "PUT",
+      body: { text: "Cat", senses: [{ pos: "명사", meanings: ["고양이"] }] },
+      cookie: guardian,
+    });
+    expect(self.status).toBe(200);
+  });
+
+  it("붙여넣기는 같은 단어끼리, 그리고 기존 단어와 합친다. 같은 걸 두 번 넣어도 늘지 않는다", async () => {
+    const { db, guardian, dayId } = await setup();
+    await call(db, `/api/days/${dayId}/words`, { method: "POST", body: PRESENT, cookie: guardian });
+    const body = {
+      words: [
+        { text: "present", senses: [{ pos: "동사", meanings: ["주다"] }] },
+        { text: "cat", senses: [{ pos: "명사", meanings: ["고양이"] }] },
+        { text: "Cat", senses: [{ pos: "명사", meanings: ["고양잇과 동물"] }] },
+      ],
+    };
+    const first = await call(db, `/api/days/${dayId}/words/bulk`, { method: "POST", body, cookie: guardian });
+    expect(first.status).toBe(201);
+    const second = await call(db, `/api/days/${dayId}/words/bulk`, { method: "POST", body, cookie: guardian });
+    expect(second.body.words).toEqual(first.body.words);
+    expect(second.body.words.map((w: { text: string }) => w.text)).toEqual(["present", "cat"]);
+    expect(second.body.words[0].senses.at(-1)).toEqual({ pos: "동사", meanings: ["주다"] });
+    expect(second.body.words[1].senses).toEqual([{ pos: "명사", meanings: ["고양이", "고양잇과 동물"] }]);
+  });
+});
+
 describe("여러 단어 한 번에 넣기", () => {
   it("넣은 순서대로 기존 단어 뒤에 붙는다", async () => {
     const { db, guardian, dayId } = await setup();

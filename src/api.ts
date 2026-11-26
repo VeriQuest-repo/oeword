@@ -61,7 +61,7 @@ export const api = {
   // 단어 (#5)
   dayWords: (dayId: number) => request<DayWords>(`/api/days/${dayId}/words`, "GET"),
   addWord: (dayId: number, input: WordInput) =>
-    request<{ word: WordView }>(`/api/days/${dayId}/words`, "POST", input),
+    request<{ word: WordView; merged?: true }>(`/api/days/${dayId}/words`, "POST", input),
   updateWord: (wordId: number, input: WordInput) => request<{ word: WordView }>(`/api/words/${wordId}`, "PUT", input),
   addWords: (dayId: number, words: WordInput[]) =>
     request<DayWords>(`/api/days/${dayId}/words/bulk`, "POST", { words }),

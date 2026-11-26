@@ -8,6 +8,7 @@ import {
   SENSE_MAX_COUNT,
   splitMeanings,
   type WordInput,
+  type WordView,
   WORD_MAX_LENGTH,
 } from "../lib/words";
 import { ErrorText, inputClass, OutlineButton, PrimaryButton } from "./ui";
@@ -51,6 +52,8 @@ export default function WordEditor({
   onCancel,
   autoFocus = false,
   resetAfterSave = false,
+  findSame,
+  sameMode = "merge",
 }: {
   initial?: WordInput | null;
   submitLabel: string;
@@ -60,12 +63,17 @@ export default function WordEditor({
   autoFocus?: boolean;
   /** 저장 후 칸을 비우고 단어 칸으로 돌아갑니다 (새 단어 넣기). */
   resetAfterSave?: boolean;
+  /** 같은 Day 에서 철자가 같은 단어 찾기 (#35) */
+  findSame?: (text: string) => WordView | undefined;
+  /** merge: 새 단어 넣기 — 기존 단어에 뜻을 더함. block: 고치기 — 다른 단어와 같은 철자로는 저장 못 함 */
+  sameMode?: "merge" | "block";
 }) {
   const [text, setText] = useState(initial?.text ?? "");
   const [senses, setSenses] = useState<SenseDraft[]>(() => toDrafts(initial));
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  const same = findSame?.(text);
   const wordRef = useRef<HTMLInputElement>(null);
 
   const updateSense = (senseKey: number, change: (s: SenseDraft) => SenseDraft) =>
@@ -95,6 +103,7 @@ export default function WordEditor({
       senses: senses.map((s) => ({ pos: s.pos, meanings: s.meanings.map((m) => m.text) })),
     });
     if (!checked.ok) return setError(checked.message);
+    if (same && sameMode === "block") return setError(`이 Day에 이미 "${same.text}" 단어가 있어요. 그 단어를 고쳐 주세요.`);
     setBusy(true);
     setError(null);
     const result = await onSave(checked.value);
@@ -141,6 +150,18 @@ export default function WordEditor({
           value={text}
           onChange={(e) => setText(e.target.value)}
         />
+        {same && (
+          <p role="status" className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-base text-amber-800">
+            이 Day에 이미 있는 단어예요.{" "}
+            {sameMode === "merge"
+              ? "저장하면 아래 뜻을 기존 단어에 더해요."
+              : "다른 단어와 같은 철자로는 고칠 수 없어요."}
+            <span className="mt-1 block text-sm text-amber-700">
+              지금 뜻:{" "}
+              {same.senses.map((s) => `[${s.pos}] ${s.meanings.join(" · ")}`).join(" / ")}
+            </span>
+          </p>
+        )}
       </div>
 
       <ol className="space-y-4">
@@ -273,7 +294,7 @@ export default function WordEditor({
 
       <div className="flex flex-wrap gap-2">
         <PrimaryButton type="submit" disabled={busy}>
-          {submitLabel}
+          {same && sameMode === "merge" ? "기존 단어에 뜻 더하기" : submitLabel}
         </PrimaryButton>
         {onCancel && <OutlineButton onClick={onCancel}>취소</OutlineButton>}
       </div>

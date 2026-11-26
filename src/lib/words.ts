@@ -165,6 +165,28 @@ export function groupMeanings(meanings: { pos: string; text: string }[]): Sense[
   return senses;
 }
 
+/** 같은 단어인지 비교할 때 쓰는 열쇠 (대소문자·앞뒤 공백 무시). 같은 Day 에는 같은 열쇠의 단어를 하나만 둡니다 (#35). */
+export function wordKey(text: string): string {
+  return tidy(text).toLowerCase();
+}
+
+/**
+ * 기존 뜻에 새 뜻을 합칩니다 (#35). 기존 순서를 지키고, 새 품사는 뒤에, 같은 품사의 새 뜻은 그 품사 뒤에 붙입니다.
+ * 같은 뜻은 한 번만 남깁니다.
+ */
+export function mergeSenses(base: Sense[], extra: Sense[]): Sense[] {
+  const merged = base.map((s) => ({ pos: s.pos, meanings: [...s.meanings] }));
+  for (const s of extra) {
+    const target = merged.find((m) => m.pos === s.pos);
+    if (!target) {
+      merged.push({ pos: s.pos, meanings: [...s.meanings] });
+      continue;
+    }
+    for (const m of s.meanings) if (!target.meanings.includes(m)) target.meanings.push(m);
+  }
+  return merged;
+}
+
 /** 한 줄로 보여 주기. 예: "[명사] 선물, 현재 / [형용사] 출석한, 현재의" */
 export function sensesText(senses: Sense[]): string {
   return senses.map((s) => `[${s.pos}] ${s.meanings.join(", ")}`).join(" / ");
