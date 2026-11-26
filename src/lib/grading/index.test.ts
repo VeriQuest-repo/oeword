@@ -92,7 +92,7 @@ describe("괄호 부분은 써도 되고 생략해도 됨", () => {
   });
 
   it("acceptedForms 는 정리한 모양을 돌려준다", () => {
-    expect(acceptedForms("(~을) 주다").sort()).toEqual(["을주다", "주다"]);
+    expect(new Set(acceptedForms("(~을) 주다"))).toEqual(new Set(["주다", "을주다"]));
   });
 });
 
