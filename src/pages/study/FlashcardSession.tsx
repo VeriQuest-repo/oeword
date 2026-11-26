@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { OutlineButton, PrimaryButton, SubtleButton, inputClass } from "../../components/ui";
+import { OutlineButton, PrimaryButton, SubtleButton } from "../../components/ui";
+import { useKeyboardInset } from "../../components/useKeyboardInset";
 import { gradeEnKo, type WordGrade } from "../../lib/grading";
 import type { StudyCard } from "../../lib/study";
 
@@ -19,6 +20,7 @@ export default function FlashcardSession({
   const card = cards[index]!;
   const last = index === cards.length - 1;
   const correctCount = [...result.values()].filter(Boolean).length;
+  useKeyboardInset();
 
   function next(grade: WordGrade) {
     result.set(card.key, grade.correct);
@@ -27,7 +29,8 @@ export default function FlashcardSession({
   }
 
   return (
-    <div className="space-y-4">
+    // 키보드가 올라오면 그 높이만큼 아래 여백을 둬 마지막 버튼까지 올려 볼 수 있게 합니다 (#8).
+    <div className="space-y-4 pb-[var(--keyboard-inset,0px)]">
       <div className="flex items-center justify-between gap-3">
         <p className="text-base font-medium text-slate-600" aria-live="polite">
           {index + 1} / {cards.length}
@@ -77,16 +80,17 @@ function Flashcard({
   }
 
   return (
-    <article className="rounded-3xl bg-white p-5 ring-1 ring-slate-200 sm:p-8">
-      <div className="text-center">
+    // 패드 가로(넓은 화면)는 왼쪽 영단어 · 오른쪽 입력칸, 세로·폰은 위아래로 놓습니다 (#8).
+    <article className="rounded-3xl bg-white p-5 ring-1 ring-slate-200 sm:p-8 lg:grid lg:grid-cols-2 lg:gap-10">
+      <div className="text-center lg:sticky lg:top-6 lg:flex lg:min-h-72 lg:flex-col lg:items-center lg:justify-center lg:self-start lg:rounded-2xl lg:bg-slate-50 lg:p-8">
         <p className="text-sm text-slate-400">{card.days.join(" · ")}</p>
-        <h2 lang="en" className="mt-2 break-words text-4xl font-bold text-slate-900 sm:text-5xl">
+        <h2 lang="en" className="mt-2 break-words text-4xl font-bold text-slate-900 sm:text-5xl lg:text-6xl">
           {card.text}
         </h2>
       </div>
 
       <form
-        className="mt-6 space-y-4"
+        className="mt-6 space-y-5 lg:mt-0"
         onSubmit={(e) => {
           e.preventDefault();
           if (grade) onNext(grade);
@@ -121,9 +125,19 @@ function Flashcard({
                   }
                 }}
                 placeholder="뜻을 적어 보세요"
+                // 펜슬 손글씨(아이패드 손글씨 입력)와 키보드 모두 그대로 받도록 자동 고침·대문자·추천을 끕니다.
+                lang="ko"
                 autoComplete="off"
-                className={`${inputClass} ${
-                  result ? (result.correct ? "border-emerald-500 bg-emerald-50" : "border-rose-400 bg-rose-50") : ""
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                enterKeyHint={i < card.senses.length - 1 ? "next" : "done"}
+                className={`${answerClass} ${
+                  result
+                    ? result.correct
+                      ? "border-emerald-500 bg-emerald-50"
+                      : "border-rose-400 bg-rose-50"
+                    : "border-slate-300 bg-white"
                 }`}
               />
               {result && (
@@ -167,3 +181,7 @@ function Flashcard({
     </article>
   );
 }
+
+/** 펜슬로 쓰기 편한 큰 입력칸 (#8) */
+const answerClass =
+  "block min-h-16 w-full min-w-0 rounded-2xl border-2 px-4 text-2xl text-slate-900 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100";
