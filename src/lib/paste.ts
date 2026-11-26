@@ -7,7 +7,7 @@
 // - 단어 칸이 비어 있으면(엑셀의 병합한 칸) 바로 윗줄 단어에 붙입니다.
 // - 칸이 빠진 줄은 problems 로 알려 주고, 미리보기에서 고친 뒤 저장합니다.
 import { tidy } from "./books";
-import { checkWordInput, normalizePos, POS_OPTIONS, type Sense, type WordInput } from "./words";
+import { checkWordInput, normalizePos, POS_OPTIONS, type Sense, splitMeanings, type WordInput } from "./words";
 
 const isKnownPos = (value: string) => (POS_OPTIONS as readonly string[]).includes(normalizePos(value));
 
@@ -102,25 +102,6 @@ export function parseRows(text: string): PasteRow[] {
     rows.push(row);
   }
   return rows;
-}
-
-/** 뜻 칸을 쉼표·세미콜론으로 나눕니다. 괄호 안의 쉼표는 나누지 않습니다. */
-export function splitMeanings(cell: string): string[] {
-  const parts: string[] = [];
-  let depth = 0;
-  let current = "";
-  for (const ch of cell) {
-    if ("([{（［".includes(ch)) depth++;
-    if (")]}）］".includes(ch)) depth = Math.max(0, depth - 1);
-    if (depth === 0 && ",;，；".includes(ch)) {
-      parts.push(current);
-      current = "";
-    } else {
-      current += ch;
-    }
-  }
-  parts.push(current);
-  return parts.map((p) => tidy(p)).filter(Boolean);
 }
 
 /** 줄들을 단어별로 묶습니다. 같은 단어(대소문자 무시)는 처음 나온 자리에 모읍니다. */

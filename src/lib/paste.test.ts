@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { groupRows, parseRows, parseTable, splitMeanings, toWordInputs } from "./paste";
+import { groupRows, parseRows, parseTable, toWordInputs } from "./paste";
+import { splitMeanings } from "./words";
 
 const tsv = (...lines: string[][]) => lines.map((l) => l.join("\t")).join("\n");
 

@@ -2,7 +2,8 @@
 //
 // 한 단어에 품사 여러 개, 품사마다 뜻 여러 개를 둡니다.
 // 예: present → [명사] 선물, 현재 / [형용사] 출석한, 현재의
-// 뜻은 단어장에 적힌 그대로 저장합니다 (채점 기준, CLAUDE.md 5장). 앞뒤·여러 칸 공백만 정리합니다.
+// 뜻은 단어장에 적힌 그대로 저장합니다 (채점 기준, CLAUDE.md 5장). 앞뒤·여러 칸 공백만 정리하고,
+// 쉼표·세미콜론은 뜻을 나누는 표시로 봅니다 (괄호 안 제외, #34).
 import { tidy } from "./books";
 
 export const WORD_MAX_LENGTH = 60;
@@ -76,6 +77,25 @@ export function normalizePos(value: string): string {
   return POS_ALIASES[bare.toLowerCase()] ?? bare;
 }
 
+/** 뜻 칸을 쉼표·세미콜론으로 나눕니다. 괄호 안의 쉼표는 나누지 않습니다. */
+export function splitMeanings(cell: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let current = "";
+  for (const ch of cell) {
+    if ("([{（［".includes(ch)) depth++;
+    if (")]}）］".includes(ch)) depth = Math.max(0, depth - 1);
+    if (depth === 0 && ",;，；".includes(ch)) {
+      parts.push(current);
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  parts.push(current);
+  return parts.map((p) => tidy(p)).filter(Boolean);
+}
+
 /** 뜻 정리: 앞뒤·여러 칸 공백만 정리합니다 (괄호·물결은 그대로). */
 export function tidyMeaning(value: string): string {
   return tidy(value);
@@ -85,6 +105,7 @@ type Checked<T> = { ok: true; value: T } | { ok: false; message: string };
 
 /**
  * 단어 입력을 검사하고 정리합니다.
+ * - 뜻 칸의 쉼표·세미콜론은 뜻을 나누는 표시입니다 (괄호 안 제외).
  * - 빈 뜻 칸은 건너뜁니다. 같은 품사가 두 번 나오면 하나로 합치고, 같은 뜻은 한 번만 남깁니다.
  * - 품사마다 뜻이 하나 이상 있어야 합니다.
  */
@@ -104,7 +125,8 @@ export function checkWordInput(body: unknown): Checked<WordInput> {
     if (typeof rawPos !== "string" || !Array.isArray(rawMeanings)) return { ok: false, message: "뜻을 읽지 못했어요." };
     if (rawMeanings.some((m) => typeof m !== "string")) return { ok: false, message: "뜻을 읽지 못했어요." };
 
-    const meanings = (rawMeanings as string[]).map(tidyMeaning).filter(Boolean);
+    // 한 칸에 쉼표로 적은 뜻도 붙여넣기와 같은 규칙으로 나눕니다 (#34). 예: "선물, 현재" → 뜻 2개
+    const meanings = (rawMeanings as string[]).flatMap(splitMeanings).map(tidyMeaning).filter(Boolean);
     const pos = normalizePos(rawPos);
     if (!pos && meanings.length === 0) continue; // 통째로 빈 품사 칸
     if (!pos) return { ok: false, message: `"${word}"의 품사를 골라 주세요.` };
