@@ -1,5 +1,5 @@
 // 여러 화면에서 쓰는 작은 부품. 패드·폰에서 손가락·펜슬로 누르기 쉽게 크게 만듭니다.
-import { type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, useEffect, useId, useState } from "react";
+import { type ButtonHTMLAttributes, type ComponentPropsWithRef, type InputHTMLAttributes, type ReactNode, useEffect, useId, useState } from "react";
 
 export function Logo({ className = "" }: { className?: string }) {
   return <span className={`font-bold tracking-tight text-indigo-600 ${className}`}>외워드</span>;
@@ -44,7 +44,7 @@ export function TextField({
   );
 }
 
-export function PrimaryButton({ children, className = "", ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {
+export function PrimaryButton({ children, className = "", ...props }: ComponentPropsWithRef<"button">) {
   return (
     <button
       {...props}

@@ -4,10 +4,11 @@ import { api } from "../api";
 import type { MenuKey } from "../lib/permissions";
 import type { SessionResponse } from "../lib/session";
 import BooksPage from "./books/BooksPage";
+import StudyPage from "./study/StudyPage";
 
 type Ready = Extract<SessionResponse, { state: "ready" }>;
 
-// 메뉴가 있는 화면. 단어장(#4~#6) 외의 메뉴 화면은 다음 이슈에서 만듭니다.
+// 메뉴가 있는 화면. 단어장(#4~#6)·외우기(#7) 외의 메뉴 화면은 다음 이슈에서 만듭니다.
 export default function MainPage({
   session,
   onChange,
@@ -65,6 +66,8 @@ export default function MainPage({
               오늘 할 일과 다음 학원 범위는 곧 여기에 보여요.
             </p>
           </section>
+        ) : item?.key === "study" ? (
+          <StudyPage />
         ) : item?.key === "books" && session.canManage ? (
           <BooksPage />
         ) : (
