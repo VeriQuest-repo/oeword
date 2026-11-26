@@ -174,7 +174,7 @@ function WordRow({
               <span className="mr-2 rounded-md bg-indigo-50 px-2 py-0.5 text-sm font-medium text-indigo-700">
                 {s.pos}
               </span>
-              {s.meanings.join(", ")}
+              {s.meanings.join(" · ")}
             </li>
           ))}
         </ul>

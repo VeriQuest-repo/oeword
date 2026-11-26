@@ -39,6 +39,17 @@ describe("checkWordInput", () => {
     expect(checked.ok && checked.value.senses[0]?.meanings).toEqual(["(~을) 주다", "~에게 건네다"]);
   });
 
+  it("한 칸에 쉼표·세미콜론으로 적은 뜻은 나누고, 괄호 안 쉼표는 그대로 둔다 (#34)", () => {
+    const result = checkWordInput({
+      text: "give",
+      senses: [{ pos: "동사", meanings: ["주다, 건네다; 바치다", "(~에게, ~을) 주다", "주다"] }],
+    });
+    expect(result).toEqual({
+      ok: true,
+      value: { text: "give", senses: [{ pos: "동사", meanings: ["주다", "건네다", "바치다", "(~에게, ~을) 주다"] }] },
+    });
+  });
+
   it("같은 품사는 합치고 같은 뜻은 한 번만 남긴다", () => {
     const checked = checkWordInput({
       text: "run",

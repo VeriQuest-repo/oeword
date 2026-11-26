@@ -6,6 +6,7 @@ import {
   POS_MAX_LENGTH,
   POS_OPTIONS,
   SENSE_MAX_COUNT,
+  splitMeanings,
   type WordInput,
   WORD_MAX_LENGTH,
 } from "../lib/words";
@@ -69,6 +70,18 @@ export default function WordEditor({
 
   const updateSense = (senseKey: number, change: (s: SenseDraft) => SenseDraft) =>
     setSenses((list) => list.map((s) => (s.key === senseKey ? change(s) : s)));
+
+  /** 뜻 칸에 쉼표·세미콜론으로 여러 뜻을 적었으면 칸을 나눠 보여 줍니다 (#34). 괄호 안은 나누지 않습니다. */
+  function splitMeaningField(senseKey: number, meaningKey: number) {
+    updateSense(senseKey, (s) => {
+      const index = s.meanings.findIndex((m) => m.key === meaningKey);
+      const parts = index < 0 ? [] : splitMeanings(s.meanings[index]!.text);
+      if (parts.length < 2) return s;
+      const pieces = parts.map((part, i) => ({ key: i === 0 ? meaningKey : key(), text: part }));
+      const meanings = [...s.meanings.slice(0, index), ...pieces, ...s.meanings.slice(index + 1)];
+      return { ...s, meanings: meanings.slice(0, MEANING_PER_SENSE_MAX_COUNT) };
+    });
+  }
 
   /** 방금 추가한 칸으로 커서를 옮깁니다. */
   function focusLater(selector: string) {
@@ -178,6 +191,9 @@ export default function WordEditor({
 
               <div className="min-w-0 space-y-2">
                 <span className="block text-sm font-medium text-slate-600">뜻</span>
+                {senseIndex === 0 && (
+                  <p className="text-sm text-slate-500">쉼표(,)로 적으면 뜻 칸이 나뉘어요. 괄호 안 쉼표는 그대로 둬요.</p>
+                )}
                 {sense.meanings.map((meaning, meaningIndex) => (
                   <div key={meaning.key} className="flex gap-2">
                     <input
@@ -197,6 +213,7 @@ export default function WordEditor({
                           meanings: s.meanings.map((m) => (m.key === meaning.key ? { ...m, text: e.target.value } : m)),
                         }))
                       }
+                      onBlur={() => splitMeaningField(sense.key, meaning.key)}
                     />
                     {sense.meanings.length > 1 && (
                       <button
