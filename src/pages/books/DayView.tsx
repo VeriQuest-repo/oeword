@@ -4,7 +4,7 @@ import WordEditor from "../../components/WordEditor";
 import { BackButton, ConfirmButton, ErrorText, OutlineButton, Panel } from "../../components/ui";
 import { dayLabel } from "../../lib/books";
 import PastePanel from "./PastePanel";
-import type { DayWords, WordView } from "../../lib/words";
+import { type DayWords, wordKey, type WordView } from "../../lib/words";
 
 // Day 하나의 단어: 직접 입력·고치기·삭제 (#5), 엑셀 붙여넣기 (#6)
 export default function DayView({ dayId, onBack }: { dayId: number; onBack: (bookId: number | null) => void }) {
@@ -34,12 +34,20 @@ export default function DayView({ dayId, onBack }: { dayId: number; onBack: (boo
   }
 
   const { day, words } = data;
+  /** 같은 Day 에서 철자가 같은 단어 (#35). 고치는 중이면 자기 자신은 뺍니다. */
+  const findSame = (text: string, exceptId?: number) =>
+    wordKey(text) ? words.find((w) => w.id !== exceptId && wordKey(w.text) === wordKey(text)) : undefined;
 
   async function add(input: Parameters<typeof api.addWord>[1]): Promise<true | string> {
     try {
-      const { word } = await api.addWord(day.id, input);
-      setWords((list) => [...list, word]);
-      setSaved(`"${word.text}" 저장했어요.`);
+      const { word, merged } = await api.addWord(day.id, input);
+      if (merged) {
+        setWords((list) => list.map((w) => (w.id === word.id ? word : w)));
+        setSaved(`"${word.text}" 기존 단어에 뜻을 더했어요.`);
+      } else {
+        setWords((list) => [...list, word]);
+        setSaved(`"${word.text}" 저장했어요.`);
+      }
       return true;
     } catch (e) {
       return errorMessage(e);
@@ -82,14 +90,24 @@ export default function DayView({ dayId, onBack }: { dayId: number; onBack: (boo
           ))}
         </div>
         {mode === "type" ? (
-          <WordEditor submitLabel="저장하고 다음 단어" resetAfterSave onSave={add} />
+          <WordEditor
+            submitLabel="저장하고 다음 단어"
+            resetAfterSave
+            onSave={add}
+            findSame={(text) => findSame(text)}
+            sameMode="merge"
+          />
         ) : (
           <PastePanel
             dayId={day.id}
             existing={words.map((w) => w.text)}
-            onSaved={(next, count) => {
+            onSaved={(next, count, mergedCount) => {
               setData(next);
-              setSaved(`${count}단어 저장했어요.`);
+              setSaved(
+                mergedCount > 0
+                  ? `${count}단어 저장했어요. 그중 ${mergedCount}개는 이미 있던 단어에 뜻을 합쳤어요.`
+                  : `${count}단어 저장했어요.`,
+              );
             }}
           />
         )}
@@ -113,6 +131,8 @@ export default function DayView({ dayId, onBack }: { dayId: number; onBack: (boo
                   initial={word}
                   submitLabel="고친 내용 저장"
                   autoFocus
+                  findSame={(text) => findSame(text, word.id)}
+                  sameMode="block"
                   onCancel={() => setEditingId(null)}
                   onSave={async (input) => {
                     try {

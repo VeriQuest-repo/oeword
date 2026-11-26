@@ -298,6 +298,25 @@ export async function getWordRow(db: D1Database, familyId: number, wordId: numbe
     .first<Word>();
 }
 
+/**
+ * 같은 Day 에서 철자가 같은 단어 (대소문자 무시, #35). exceptWordId 는 고치는 중인 자기 자신을 뺄 때 씁니다.
+ * lower() 는 영문자만 바꾸므로 영단어 비교에 맞습니다.
+ */
+export async function findWordInDay(
+  db: D1Database,
+  dayId: number,
+  text: string,
+  exceptWordId?: number,
+): Promise<Word | null> {
+  return db
+    .prepare(
+      `SELECT id, day_id, text, sort_order, created_at FROM word
+       WHERE day_id = ? AND lower(text) = lower(?) AND id != ? ORDER BY sort_order, id LIMIT 1`,
+    )
+    .bind(dayId, text, exceptWordId ?? -1)
+    .first<Word>();
+}
+
 /** 새 단어는 Day 맨 뒤에 붙습니다. */
 export async function nextWordSortOrder(db: D1Database, dayId: number): Promise<number> {
   const row = await db
@@ -317,12 +336,20 @@ export async function updateWord(
   input: { text: string; meanings: MeaningInput[] },
 ): Promise<void> {
   if (input.meanings.length === 0) throw new Error("뜻이 하나 이상 있어야 합니다.");
+  await db.batch(updateWordStatements(db, wordId, input));
+}
+
+function updateWordStatements(
+  db: D1Database,
+  wordId: number,
+  input: { text: string; meanings: MeaningInput[] },
+): D1PreparedStatement[] {
   const insert = db.prepare("INSERT INTO meaning (word_id, pos, text, sort_order) VALUES (?, ?, ?, ?)");
-  await db.batch([
+  return [
     db.prepare("UPDATE word SET text = ? WHERE id = ?").bind(input.text, wordId),
     db.prepare("DELETE FROM meaning WHERE word_id = ?").bind(wordId),
     ...input.meanings.map((m, i) => insert.bind(wordId, m.pos, m.text, i)),
-  ]);
+  ];
 }
 
 /** 단어를 지웁니다. 뜻·기록도 함께 지워집니다 (ON DELETE CASCADE). */
@@ -335,23 +362,26 @@ export async function deleteWord(db: D1Database, wordId: number): Promise<void> 
 /**
  * 여러 단어를 한 트랜잭션으로 Day 맨 뒤에 넣습니다. 하나라도 실패하면 아무것도 들어가지 않습니다.
  * (addWord 와 같이, batch 안에서는 방금 넣은 단어가 word 표의 가장 큰 id 입니다.)
+ * updates 는 이미 있는 단어에 뜻을 합친 결과로, 같은 트랜잭션에서 함께 고칩니다 (#35).
  */
 export async function addWords(
   db: D1Database,
   dayId: number,
   words: { text: string; meanings: MeaningInput[] }[],
+  updates: { wordId: number; text: string; meanings: MeaningInput[] }[] = [],
 ): Promise<void> {
-  if (words.length === 0) return;
-  if (words.some((w) => w.meanings.length === 0)) throw new Error("뜻이 하나 이상 있어야 합니다.");
+  if (words.length === 0 && updates.length === 0) return;
+  if ([...words, ...updates].some((w) => w.meanings.length === 0)) throw new Error("뜻이 하나 이상 있어야 합니다.");
   const start = await nextWordSortOrder(db, dayId);
   const insertWord = db.prepare("INSERT INTO word (day_id, text, sort_order) VALUES (?, ?, ?)");
   const insertMeaning = db.prepare(
     "INSERT INTO meaning (word_id, pos, text, sort_order) VALUES ((SELECT max(id) FROM word), ?, ?, ?)",
   );
-  await db.batch(
-    words.flatMap((w, i) => [
+  await db.batch([
+    ...updates.flatMap((u) => updateWordStatements(db, u.wordId, u)),
+    ...words.flatMap((w, i) => [
       insertWord.bind(dayId, w.text, start + i),
       ...w.meanings.map((m, j) => insertMeaning.bind(m.pos, m.text, j)),
     ]),
-  );
+  ]);
 }
