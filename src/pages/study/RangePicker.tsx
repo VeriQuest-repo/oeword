@@ -2,7 +2,26 @@ import { type ButtonHTMLAttributes, type ReactNode, useEffect, useState } from "
 import { api, errorMessage } from "../../api";
 import { ErrorText, Panel, PrimaryButton } from "../../components/ui";
 import { type BookDetail, type BookSummary, dayLabel } from "../../lib/books";
-import { assignDirections, buildDeck, shuffle, type StudyDirection, type StudyItem } from "../../lib/study";
+import { CHOICE_COUNT } from "../../lib/choices";
+import {
+  assignDirections,
+  buildDeck,
+  shuffle,
+  STAGES,
+  type StudyCard,
+  type StudyDirection,
+  type StudyItem,
+  type StudyStage,
+} from "../../lib/study";
+
+export interface StudyPlan {
+  stage: StudyStage;
+  all: StudyItem[];
+  /** 객관식 오답 후보: 고른 범위의 단어 */
+  range: StudyCard[];
+  /** 범위만으로 모자랄 때 쓸 같은 단어장의 다른 Day 단어 (객관식일 때만 불러옴) */
+  extra: StudyCard[];
+}
 
 const directions: { value: StudyDirection; label: string; hint: string }[] = [
   { value: "en_ko", label: "영단어", hint: "영단어 보고 뜻 쓰기" },
@@ -10,14 +29,15 @@ const directions: { value: StudyDirection; label: string; hint: string }[] = [
   { value: "mixed", label: "영단어/뜻", hint: "반반 섞어서" },
 ];
 
-// 외우기 범위 고르기: 단어장 → Day 여러 개 → 방향 (#7)
-export default function RangePicker({ onStart }: { onStart: (cards: StudyItem[]) => void }) {
+// 외우기 고르기: 단어장 → Day 여러 개 → 방향 → 단계 (#7, #42, #43)
+export default function RangePicker({ onStart }: { onStart: (plan: StudyPlan) => void }) {
   const [books, setBooks] = useState<BookSummary[] | null>(null);
   const [bookId, setBookId] = useState<number | null>(null);
   const [detail, setDetail] = useState<BookDetail | null>(null);
   const [picked, setPicked] = useState<number[]>([]);
   const [mix, setMix] = useState(true);
   const [direction, setDirection] = useState<StudyDirection>("en_ko");
+  const [stage, setStage] = useState<StudyStage>("blind");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,6 +62,10 @@ export default function RangePicker({ onStart }: { onStart: (cards: StudyItem[])
   const days = detail?.days ?? [];
   const pickedDays = days.filter((d) => picked.includes(d.id));
   const wordCount = pickedDays.reduce((sum, d) => sum + d.wordCount, 0);
+  const bookWordCount = days.reduce((sum, d) => sum + d.wordCount, 0);
+  // 보기를 만들 다른 단어가 없으면 객관식을 고를 수 없습니다.
+  const choiceDisabled = bookWordCount < 2;
+  const chosenStage = stage === "choice" && choiceDisabled ? "blind" : stage;
 
   function chooseBook(id: number) {
     if (id === bookId) return;
@@ -64,7 +88,13 @@ export default function RangePicker({ onStart }: { onStart: (cards: StudyItem[])
         setError("고른 Day에 단어가 없어요.");
         return;
       }
-      onStart(assignDirections(mix ? shuffle(deck) : deck, direction));
+      let extra: StudyCard[] = [];
+      // 범위 안 단어만으로 오답이 모자랄 수 있으면 같은 단어장의 다른 Day도 불러옵니다.
+      if (chosenStage === "choice" && deck.length < CHOICE_COUNT * 2) {
+        const others = days.filter((d) => !picked.includes(d.id) && d.wordCount > 0);
+        extra = buildDeck(await Promise.all(others.map((d) => api.dayWords(d.id))));
+      }
+      onStart({ stage: chosenStage, all: assignDirections(mix ? shuffle(deck) : deck, direction), range: deck, extra });
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -76,7 +106,7 @@ export default function RangePicker({ onStart }: { onStart: (cards: StudyItem[])
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">외우기</h1>
-        <p className="mt-1 text-base text-slate-500">외울 Day와 방향을 고르고, 떠올려 적어 보세요.</p>
+        <p className="mt-1 text-base text-slate-500">외울 Day와 방향, 단계를 고르세요. 가리기 → 객관식 → 주관식 순서로 하면 쉬워요.</p>
       </div>
 
       <ErrorText message={error} />
@@ -142,6 +172,32 @@ export default function RangePicker({ onStart }: { onStart: (cards: StudyItem[])
                     <span className="block text-sm font-normal opacity-80">{d.hint}</span>
                   </ChoiceButton>
                 ))}
+              </div>
+            </Panel>
+          )}
+
+          {bookId !== null && days.length > 0 && (
+            <Panel>
+              <h2 className="mb-3 text-lg font-semibold text-slate-800">단계</h2>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {STAGES.map((st, i) => {
+                  const disabled = st.value === "choice" && choiceDisabled;
+                  return (
+                    <ChoiceButton
+                      key={st.value}
+                      selected={chosenStage === st.value}
+                      disabled={disabled}
+                      onClick={() => setStage(st.value)}
+                    >
+                      <span className="block break-words">
+                        {i + 1}. {st.label}
+                      </span>
+                      <span className="block text-sm font-normal opacity-80">
+                        {disabled ? "단어가 2개 이상 있어야 해요" : st.hint}
+                      </span>
+                    </ChoiceButton>
+                  );
+                })}
               </div>
             </Panel>
           )}

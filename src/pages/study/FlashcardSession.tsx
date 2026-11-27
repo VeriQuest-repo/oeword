@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { OutlineButton, PrimaryButton, SubtleButton } from "../../components/ui";
 import { useKeyboardInset } from "../../components/useKeyboardInset";
 import { gradeEnKo, gradeKoEn, type WordGrade } from "../../lib/grading";
-import type { StudyItem } from "../../lib/study";
+import type { StudyCard, StudyItem, StudyStage } from "../../lib/study";
+import { BlindCard, ChoiceCard } from "./StageCards";
 
 /** 카드별 결과: 열쇠(wordKey) → 맞혔는지 */
 export type SessionResult = Map<string, boolean>;
@@ -11,11 +12,18 @@ export type SessionResult = Map<string, boolean>;
 // 바로 채점하고 단어장 내용을 보여 줍니다.
 export default function FlashcardSession({
   cards,
+  stage,
+  range,
+  extra,
   round,
   onFinish,
   onStop,
 }: {
   cards: StudyItem[];
+  stage: StudyStage;
+  /** 객관식 오답 후보: 고른 범위의 단어, 모자랄 때 쓸 같은 단어장의 다른 단어 */
+  range: readonly StudyCard[];
+  extra: readonly StudyCard[];
   /** 몇 번째 바퀴인지 (1부터). 2 이상이면 틀린 단어를 다시 보는 중 */
   round: number;
   /** 한 바퀴를 끝까지 봤을 때 */
@@ -42,8 +50,14 @@ export default function FlashcardSession({
       <div className="flex items-center justify-between gap-3">
         <p className="text-base font-medium text-slate-600" aria-live="polite">
           {index + 1} / {cards.length}
-          <span className="ml-3 text-slate-400">맞힘 {correctCount}</span>
-          {round > 1 && <span className="ml-3 text-amber-700">틀린 단어 다시 · {round}번째</span>}
+          <span className="ml-3 text-slate-400">
+            {stage === "blind" ? "외움" : "맞힘"} {correctCount}
+          </span>
+          {round > 1 && (
+            <span className="ml-3 text-amber-700">
+              {stage === "blind" ? "못외움" : "틀린 단어"} 다시 · {round}번째
+            </span>
+          )}
         </p>
         <SubtleButton onClick={() => onStop(result)}>그만하기</SubtleButton>
       </div>
@@ -57,7 +71,11 @@ export default function FlashcardSession({
       >
         <div className="h-full bg-indigo-500 transition-all" style={{ width: `${(index / cards.length) * 100}%` }} />
       </div>
-      {card.direction === "en_ko" ? (
+      {stage === "blind" ? (
+        <BlindCard key={`${index}-${card.key}`} card={card} onNext={next} />
+      ) : stage === "choice" ? (
+        <ChoiceCard key={`${index}-${card.key}`} card={card} range={range} extra={extra} last={last} onNext={next} />
+      ) : card.direction === "en_ko" ? (
         <Flashcard key={`${index}-${card.key}`} card={card} last={last} onNext={next} />
       ) : (
         <WordCard key={`${index}-${card.key}`} card={card} last={last} onNext={next} />
