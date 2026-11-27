@@ -11,6 +11,8 @@ const TABLES = [
   "member",
   "schedule",
   "session",
+  "study_completion",
+  "study_completion_day",
   "test",
   "test_day",
   "test_item",
@@ -77,6 +79,8 @@ describe("migrations", () => {
       INSERT INTO test_day (test_id, day_id) VALUES (1, 1);
       INSERT INTO test_item (test_id, word_id, position, direction) VALUES (1, 1, 1, 'en_ko');
       INSERT INTO word_stat (student_id, word_id, correct_count) VALUES (1, 1, 1);
+      INSERT INTO study_completion (id, student_id, stage, direction, word_count) VALUES (1, 1, 'blind', 'en_ko', 1);
+      INSERT INTO study_completion_day (completion_id, day_id) VALUES (1, 1);
       DELETE FROM family WHERE id = 1;
     `);
     for (const table of TABLES) {

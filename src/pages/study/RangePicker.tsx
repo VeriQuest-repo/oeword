@@ -3,10 +3,14 @@ import { api, errorMessage } from "../../api";
 import { ErrorText, Panel, PrimaryButton } from "../../components/ui";
 import { type BookDetail, type BookSummary, dayLabel } from "../../lib/books";
 import { CHOICE_COUNT } from "../../lib/choices";
+import type { MemberSummary } from "../../lib/session";
 import {
   assignDirections,
   buildDeck,
+  EMPTY_COUNTS,
+  recommendStage,
   shuffle,
+  type StageCounts,
   STAGES,
   type StudyCard,
   type StudyDirection,
@@ -16,6 +20,8 @@ import {
 
 export interface StudyPlan {
   stage: StudyStage;
+  direction: StudyDirection;
+  dayIds: number[];
   all: StudyItem[];
   /** 객관식 오답 후보: 고른 범위의 단어 */
   range: StudyCard[];
@@ -30,14 +36,29 @@ const directions: { value: StudyDirection; label: string; hint: string }[] = [
 ];
 
 // 외우기 고르기: 단어장 → Day 여러 개 → 방향 → 단계 (#7, #42, #43)
-export default function RangePicker({ onStart }: { onStart: (plan: StudyPlan) => void }) {
+export default function RangePicker({
+  member,
+  members,
+  onStart,
+}: {
+  member: MemberSummary;
+  members: MemberSummary[];
+  onStart: (plan: StudyPlan) => void;
+}) {
+  const students = members.filter((m) => m.role === "student");
+  // 학생은 자기 기록, 보호자는 고른 아이의 기록을 봅니다 (#44).
+  const [studentId, setStudentId] = useState<number | null>(
+    member.role === "student" ? member.id : (students[0]?.id ?? null),
+  );
+  const [records, setRecords] = useState<Map<number, StageCounts>>(new Map());
   const [books, setBooks] = useState<BookSummary[] | null>(null);
   const [bookId, setBookId] = useState<number | null>(null);
   const [detail, setDetail] = useState<BookDetail | null>(null);
   const [picked, setPicked] = useState<number[]>([]);
   const [mix, setMix] = useState(true);
   const [direction, setDirection] = useState<StudyDirection>("en_ko");
-  const [stage, setStage] = useState<StudyStage>("blind");
+  // 학생이 직접 고른 단계. 고른 Day·추천이 바뀌면 다시 추천 단계로 돌아갑니다.
+  const [manual, setManual] = useState<{ key: string; stage: StudyStage } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,12 +80,31 @@ export default function RangePicker({ onStart }: { onStart: (plan: StudyPlan) =>
       .catch((e) => setError(errorMessage(e)));
   }, [bookId]);
 
+  useEffect(() => {
+    if (bookId === null || studentId === null) return;
+    let alive = true;
+    api
+      .studyRecords(bookId, studentId)
+      .then(({ days: list }) => {
+        if (alive) setRecords(new Map(list.map(({ dayId, ...counts }) => [dayId, counts])));
+      })
+      .catch((e) => setError(errorMessage(e)));
+    return () => {
+      alive = false;
+    };
+  }, [bookId, studentId]);
+
   const days = detail?.days ?? [];
   const pickedDays = days.filter((d) => picked.includes(d.id));
   const wordCount = pickedDays.reduce((sum, d) => sum + d.wordCount, 0);
   const bookWordCount = days.reduce((sum, d) => sum + d.wordCount, 0);
   // 보기를 만들 다른 단어가 없으면 객관식을 고를 수 없습니다.
   const choiceDisabled = bookWordCount < 2;
+  const countsOf = (dayId: number) => records.get(dayId) ?? EMPTY_COUNTS;
+  const recommended = recommendStage(pickedDays.map((d) => countsOf(d.id)), !choiceDisabled);
+  const recommendKey = `${picked.join(",")}|${recommended}`;
+  // '추천' 단계를 먼저 골라 두고, 학생이 다른 단계를 고르면 그걸 씁니다.
+  const stage = manual?.key === recommendKey ? manual.stage : recommended;
   const chosenStage = stage === "choice" && choiceDisabled ? "blind" : stage;
 
   function chooseBook(id: number) {
@@ -94,7 +134,13 @@ export default function RangePicker({ onStart }: { onStart: (plan: StudyPlan) =>
         const others = days.filter((d) => !picked.includes(d.id) && d.wordCount > 0);
         extra = buildDeck(await Promise.all(others.map((d) => api.dayWords(d.id))));
       }
-      onStart({ stage: chosenStage, all: assignDirections(mix ? shuffle(deck) : deck, direction), range: deck, extra });
+      onStart({
+        stage: chosenStage,
+        direction,
+        dayIds: pickedDays.map((d) => d.id),
+        all: assignDirections(mix ? shuffle(deck) : deck, direction), range: deck,
+        extra,
+      });
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -132,6 +178,20 @@ export default function RangePicker({ onStart }: { onStart: (plan: StudyPlan) =>
             </Panel>
           )}
 
+          {member.role !== "student" && students.length > 0 && (
+            <Panel>
+              <h2 className="mb-1 text-lg font-semibold text-slate-800">누구의 기록을 볼까요?</h2>
+              <p className="mb-3 text-base text-slate-500">Day마다 단계별 완료 횟수가 보여요. 보호자가 외운 것은 기록되지 않아요.</p>
+              <div className="flex flex-wrap gap-2">
+                {students.map((st) => (
+                  <ChoiceButton key={st.id} selected={st.id === studentId} onClick={() => setStudentId(st.id)}>
+                    {st.name}
+                  </ChoiceButton>
+                ))}
+              </div>
+            </Panel>
+          )}
+
           {bookId !== null && (
             <Panel>
               <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
@@ -155,6 +215,7 @@ export default function RangePicker({ onStart }: { onStart: (plan: StudyPlan) =>
                     >
                       <span className="block break-words">{dayLabel(d)}</span>
                       <span className="block text-sm font-normal opacity-80">{d.wordCount}단어</span>
+                      {studentId !== null && <StageCountLine counts={countsOf(d.id)} />}
                     </ChoiceButton>
                   ))}
                 </div>
@@ -187,10 +248,21 @@ export default function RangePicker({ onStart }: { onStart: (plan: StudyPlan) =>
                       key={st.value}
                       selected={chosenStage === st.value}
                       disabled={disabled}
-                      onClick={() => setStage(st.value)}
+                      onClick={() => setManual({ key: recommendKey, stage: st.value })}
                     >
-                      <span className="block break-words">
-                        {i + 1}. {st.label}
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="break-words">
+                          {i + 1}. {st.label}
+                        </span>
+                        {picked.length > 0 && st.value === recommended && (
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                              chosenStage === st.value ? "bg-white text-indigo-700" : "bg-amber-100 text-amber-800"
+                            }`}
+                          >
+                            추천
+                          </span>
+                        )}
                       </span>
                       <span className="block text-sm font-normal opacity-80">
                         {disabled ? "단어가 2개 이상 있어야 해요" : st.hint}
@@ -242,5 +314,21 @@ function ChoiceButton({
     >
       {children}
     </button>
+  );
+}
+
+/** Day 버튼 안의 단계별 완료 횟수 (#44) */
+function StageCountLine({ counts }: { counts: StageCounts }) {
+  return (
+    <span className="mt-1 block text-xs font-normal opacity-80">
+      {STAGES.map((st, i) => (
+        <span key={st.value}>
+          {i > 0 && " · "}
+          <span className="whitespace-nowrap">
+            {st.label} {counts[st.value]}
+          </span>
+        </span>
+      ))}
+    </span>
   );
 }

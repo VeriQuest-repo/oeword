@@ -1,6 +1,7 @@
 // 화면에서 /api/* 를 부르는 함수 (화면 전용, 서버에서는 쓰지 않음). 로그인·구성원 선택 (#3).
 import type { BookDetail, BookSummary, DaySummary } from "./lib/books";
 import type { SessionResponse, SetupInput } from "./lib/session";
+import type { CompletionInput, StudyRecords } from "./lib/study";
 import type { DayWords, WordInput, WordView } from "./lib/words";
 
 /** 서버가 돌려준 한국어 문구를 담은 오류. 화면에 그대로 보여 줍니다. */
@@ -66,6 +67,11 @@ export const api = {
   addWords: (dayId: number, words: WordInput[]) =>
     request<DayWords>(`/api/days/${dayId}/words/bulk`, "POST", { words }),
   deleteWord: (wordId: number) => request<{ ok: true }>(`/api/words/${wordId}`, "DELETE"),
+
+  // 외우기 완료 기록 (#44)
+  saveCompletion: (input: CompletionInput) => request<{ id: number }>("/api/study/completions", "POST", input),
+  studyRecords: (bookId: number, studentId: number) =>
+    request<StudyRecords>(`/api/books/${bookId}/study-records?studentId=${studentId}`, "GET"),
 };
 
 /** 오류를 화면에 보여 줄 문구로 바꿉니다. */

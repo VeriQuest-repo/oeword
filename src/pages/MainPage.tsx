@@ -67,7 +67,7 @@ export default function MainPage({
             </p>
           </section>
         ) : item?.key === "study" ? (
-          <StudyPage />
+          <StudyPage member={session.member} members={session.members} />
         ) : item?.key === "books" && session.canManage ? (
           <BooksPage />
         ) : (

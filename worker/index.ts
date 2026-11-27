@@ -1,6 +1,7 @@
 import { checkDatabase } from "./db/health";
 import { handleBookApi } from "./routes/books";
 import { handleSessionApi } from "./routes/session";
+import { handleStudyApi } from "./routes/study";
 import { handleWordApi } from "./routes/words";
 
 export interface HealthResponse {
@@ -23,6 +24,9 @@ export async function handleApi(request: Request, env: Env, now: Date = new Date
 
   const words = await handleWordApi(request, env.DB, now);
   if (words) return words;
+
+  const study = await handleStudyApi(request, env.DB, now);
+  if (study) return study;
 
   if (url.pathname === "/api/health") {
     if (request.method !== "GET") {
