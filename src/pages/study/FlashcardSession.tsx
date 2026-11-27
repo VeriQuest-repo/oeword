@@ -1,19 +1,27 @@
 import { useEffect, useRef, useState } from "react";
 import { OutlineButton, PrimaryButton, SubtleButton } from "../../components/ui";
 import { useKeyboardInset } from "../../components/useKeyboardInset";
-import { gradeEnKo, type WordGrade } from "../../lib/grading";
-import type { StudyCard } from "../../lib/study";
+import { gradeEnKo, gradeKoEn, type WordGrade } from "../../lib/grading";
+import type { StudyItem } from "../../lib/study";
 
 /** 카드별 결과: 열쇠(wordKey) → 맞혔는지 */
 export type SessionResult = Map<string, boolean>;
 
-// 플래시카드 (영→한, #7). 영단어를 보고 품사별 입력칸에 뜻을 적으면 바로 채점하고 단어장 뜻을 보여 줍니다.
+// 플래시카드 (#7). 영단어→뜻 카드는 품사별 입력칸에 뜻을, 뜻→영단어 카드는 영단어를 적으면
+// 바로 채점하고 단어장 내용을 보여 줍니다.
 export default function FlashcardSession({
   cards,
+  round,
   onFinish,
+  onStop,
 }: {
-  cards: StudyCard[];
+  cards: StudyItem[];
+  /** 몇 번째 바퀴인지 (1부터). 2 이상이면 틀린 단어를 다시 보는 중 */
+  round: number;
+  /** 한 바퀴를 끝까지 봤을 때 */
   onFinish: (result: SessionResult) => void;
+  /** "그만하기" */
+  onStop: (result: SessionResult) => void;
 }) {
   const [index, setIndex] = useState(0);
   const [result] = useState<SessionResult>(() => new Map());
@@ -22,8 +30,8 @@ export default function FlashcardSession({
   const correctCount = [...result.values()].filter(Boolean).length;
   useKeyboardInset();
 
-  function next(grade: WordGrade) {
-    result.set(card.key, grade.correct);
+  function next(correct: boolean) {
+    result.set(card.key, correct);
     if (last) onFinish(result);
     else setIndex(index + 1);
   }
@@ -35,8 +43,9 @@ export default function FlashcardSession({
         <p className="text-base font-medium text-slate-600" aria-live="polite">
           {index + 1} / {cards.length}
           <span className="ml-3 text-slate-400">맞힘 {correctCount}</span>
+          {round > 1 && <span className="ml-3 text-amber-700">틀린 단어 다시 · {round}번째</span>}
         </p>
-        <SubtleButton onClick={() => onFinish(result)}>그만하기</SubtleButton>
+        <SubtleButton onClick={() => onStop(result)}>그만하기</SubtleButton>
       </div>
       <div
         className="h-2 overflow-hidden rounded-full bg-slate-200"
@@ -48,7 +57,11 @@ export default function FlashcardSession({
       >
         <div className="h-full bg-indigo-500 transition-all" style={{ width: `${(index / cards.length) * 100}%` }} />
       </div>
-      <Flashcard key={`${index}-${card.key}`} card={card} last={last} onNext={next} />
+      {card.direction === "en_ko" ? (
+        <Flashcard key={`${index}-${card.key}`} card={card} last={last} onNext={next} />
+      ) : (
+        <WordCard key={`${index}-${card.key}`} card={card} last={last} onNext={next} />
+      )}
     </div>
   );
 }
@@ -58,9 +71,9 @@ function Flashcard({
   last,
   onNext,
 }: {
-  card: StudyCard;
+  card: StudyItem;
   last: boolean;
-  onNext: (grade: WordGrade) => void;
+  onNext: (correct: boolean) => void;
 }) {
   const [answers, setAnswers] = useState<string[]>(() => card.senses.map(() => ""));
   const [grade, setGrade] = useState<WordGrade | null>(null);
@@ -93,7 +106,7 @@ function Flashcard({
         className="mt-6 space-y-5 lg:mt-0"
         onSubmit={(e) => {
           e.preventDefault();
-          if (grade) onNext(grade);
+          if (grade) onNext(grade.correct);
           else check();
         }}
       >
@@ -163,6 +176,127 @@ function Flashcard({
 
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           {grade ? (
+            <PrimaryButton ref={nextButton} type="submit" className="sm:min-w-48">
+              {last ? "결과 보기" : "다음 카드"}
+            </PrimaryButton>
+          ) : (
+            <>
+              <OutlineButton onClick={() => check(true)} className="min-h-14 sm:min-w-36">
+                모르겠어요
+              </OutlineButton>
+              <PrimaryButton type="submit" className="sm:min-w-48">
+                확인
+              </PrimaryButton>
+            </>
+          )}
+        </div>
+      </form>
+    </article>
+  );
+}
+
+// 뜻→영단어 카드: 품사별 단어장 뜻을 보여 주고 영단어 하나를 적습니다.
+function WordCard({
+  card,
+  last,
+  onNext,
+}: {
+  card: StudyItem;
+  last: boolean;
+  onNext: (correct: boolean) => void;
+}) {
+  const [answer, setAnswer] = useState("");
+  const [correct, setCorrect] = useState<boolean | null>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const nextButton = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    input.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (correct !== null) nextButton.current?.focus();
+  }, [correct]);
+
+  function check(giveUp = false) {
+    setCorrect(giveUp ? false : gradeKoEn(card.text, answer));
+  }
+
+  return (
+    <article className="rounded-3xl bg-white p-5 ring-1 ring-slate-200 sm:p-8 lg:grid lg:grid-cols-2 lg:gap-10">
+      <div className="lg:sticky lg:top-6 lg:flex lg:min-h-72 lg:flex-col lg:justify-center lg:self-start lg:rounded-2xl lg:bg-slate-50 lg:p-8">
+        <p className="text-center text-sm text-slate-400">{card.days.join(" · ")}</p>
+        <ul className="mt-3 space-y-2">
+          {card.senses.map((s) => (
+            <li key={s.pos} className="flex items-baseline gap-2 text-2xl text-slate-900 sm:text-3xl">
+              <span className="shrink-0 rounded-lg bg-slate-100 px-2 py-0.5 text-base font-semibold text-slate-700">
+                {s.pos}
+              </span>
+              <span className="min-w-0 break-words font-bold">{s.meanings.join(", ")}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <form
+        className="mt-6 space-y-5 lg:mt-0"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (correct !== null) onNext(correct);
+          else check();
+        }}
+      >
+        <div>
+          <label htmlFor="answer-word" className="mb-2 flex items-center gap-2 text-lg font-semibold text-slate-700">
+            영단어
+            {correct !== null && (
+              <span className={correct ? "text-emerald-600" : "text-rose-600"}>{correct ? "맞음" : "틀림"}</span>
+            )}
+          </label>
+          <input
+            id="answer-word"
+            ref={input}
+            value={answer}
+            readOnly={correct !== null}
+            onChange={(e) => setAnswer(e.target.value)}
+            placeholder="영단어를 적어 보세요"
+            lang="en"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            enterKeyHint="done"
+            className={`${answerClass} ${
+              correct === null
+                ? "border-slate-300 bg-white"
+                : correct
+                  ? "border-emerald-500 bg-emerald-50"
+                  : "border-rose-400 bg-rose-50"
+            }`}
+          />
+          {correct !== null && (
+            <p className="mt-2 rounded-xl bg-slate-50 px-4 py-2 text-lg text-slate-800">
+              <span className="mr-2 text-sm font-medium text-slate-500">단어장 영단어</span>
+              <span lang="en" className="font-bold">
+                {card.text}
+              </span>
+            </p>
+          )}
+        </div>
+
+        {correct !== null && (
+          <p
+            role="status"
+            className={`rounded-2xl px-4 py-3 text-center text-xl font-bold ${
+              correct ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"
+            }`}
+          >
+            {correct ? "정답이에요!" : "다시 한번 보고 넘어가요"}
+          </p>
+        )}
+
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          {correct !== null ? (
             <PrimaryButton ref={nextButton} type="submit" className="sm:min-w-48">
               {last ? "결과 보기" : "다음 카드"}
             </PrimaryButton>

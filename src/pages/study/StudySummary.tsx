@@ -1,41 +1,63 @@
 import { OutlineButton, Panel, PrimaryButton } from "../../components/ui";
-import type { StudyCard } from "../../lib/study";
+import type { StudyItem } from "../../lib/study";
 import type { SessionResult } from "./FlashcardSession";
 
-// 외우기 결과: 맞힌 수, 틀린 단어와 단어장 뜻, 틀린 단어만 다시 (#7)
+// 한 바퀴가 끝난 뒤 화면 (#7): 틀린 단어가 있으면 그 단어만 다시 외우게 하고,
+// 모두 맞히면 끝(완료)입니다. "그만하기"로 멈춘 경우는 완료가 아닙니다.
 export default function StudySummary({
   cards,
   result,
-  onRetry,
+  round,
+  stopped,
+  onRetryWrong,
+  onRestart,
   onPickAgain,
 }: {
-  cards: StudyCard[];
+  cards: StudyItem[];
   result: SessionResult;
-  onRetry: (cards: StudyCard[]) => void;
+  round: number;
+  stopped: boolean;
+  onRetryWrong: () => void;
+  onRestart: () => void;
   onPickAgain: () => void;
 }) {
   const seen = cards.filter((c) => result.has(c.key));
   const wrong = seen.filter((c) => !result.get(c.key));
   const correct = seen.length - wrong.length;
   const unseen = cards.length - seen.length;
+  const left = wrong.length + unseen;
+  const complete = !stopped && left === 0;
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">외우기 결과</h1>
+        <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">
+          {complete ? "다 외웠어요!" : stopped ? "외우기를 멈췄어요" : `틀린 단어 ${wrong.length}개가 남았어요`}
+        </h1>
         <p className="mt-2 text-lg text-slate-700">
-          {seen.length}단어 중 <strong className="text-emerald-700">{correct}개</strong> 맞혔어요
-          {unseen > 0 && <span className="text-slate-500"> · 남은 카드 {unseen}개</span>}
+          {complete ? (
+            round > 1 ? (
+              `틀린 단어를 ${round - 1}번 다시 보고 모두 맞혔어요.`
+            ) : (
+              "한 번에 모두 맞혔어요."
+            )
+          ) : (
+            <>
+              {seen.length}단어 중 <strong className="text-emerald-700">{correct}개</strong> 맞혔어요
+              {unseen > 0 && <span className="text-slate-500"> · 안 본 카드 {unseen}개</span>}
+              {!stopped && " · 틀린 단어만 다시 외워요"}
+            </>
+          )}
         </p>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row">
-        {wrong.length > 0 && (
-          <PrimaryButton type="button" onClick={() => onRetry(wrong)}>
-            틀린 단어만 다시 ({wrong.length}개)
+        {left > 0 && (
+          <PrimaryButton type="button" onClick={onRetryWrong}>
+            {stopped ? `남은 단어 이어서 (${left}개)` : `틀린 단어 다시 (${left}개)`}
           </PrimaryButton>
         )}
-        <OutlineButton onClick={() => onRetry(cards)} className="min-h-14">
+        <OutlineButton onClick={onRestart} className="min-h-14">
           처음부터 다시
         </OutlineButton>
         <OutlineButton onClick={onPickAgain} className="min-h-14">
@@ -65,9 +87,9 @@ export default function StudySummary({
           </ul>
         </Panel>
       ) : (
-        seen.length > 0 && (
+        complete && (
           <Panel>
-            <p className="text-lg text-slate-700">모두 맞혔어요. 잘했어요!</p>
+            <p className="text-lg text-slate-700">잘했어요! 다른 방향이나 다른 Day도 외워 보세요.</p>
           </Panel>
         )
       )}

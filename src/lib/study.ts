@@ -45,3 +45,32 @@ export function shuffle<T>(items: readonly T[], random: () => number = Math.rand
   }
   return result;
 }
+
+/** 외우기 방향: 영단어 보고 뜻(en_ko), 뜻 보고 영단어(ko_en), 둘을 5:5로 섞기(mixed) */
+export type StudyDirection = "en_ko" | "ko_en" | "mixed";
+
+/** 방향이 정해진 카드. mixed 를 고르면 카드마다 en_ko 또는 ko_en 이 정해집니다. */
+export interface StudyItem extends StudyCard {
+  direction: "en_ko" | "ko_en";
+}
+
+/**
+ * 카드마다 방향을 정합니다. mixed 는 카드 절반(홀수면 남는 한 장은 무작위)을 뜻→영단어로,
+ * 나머지를 영단어→뜻으로 무작위로 나눕니다. 카드 순서는 바꾸지 않습니다.
+ */
+export function assignDirections(
+  cards: readonly StudyCard[],
+  direction: StudyDirection,
+  random: () => number = Math.random,
+): StudyItem[] {
+  if (direction !== "mixed") return cards.map((c) => ({ ...c, direction }));
+  const extra = cards.length % 2 === 1 && random() < 0.5 ? 1 : 0;
+  const koEnCount = Math.floor(cards.length / 2) + extra;
+  const koEn = new Set(shuffle(cards.map((_, i) => i), random).slice(0, koEnCount));
+  return cards.map((c, i) => ({ ...c, direction: koEn.has(i) ? "ko_en" : "en_ko" }));
+}
+
+/** 한 바퀴 결과에서 다시 볼(틀린) 카드만 고릅니다. 결과가 없는 카드(안 본 카드)는 빼지 않고 남깁니다. */
+export function wrongItems<T extends StudyCard>(items: readonly T[], result: ReadonlyMap<string, boolean>): T[] {
+  return items.filter((item) => result.get(item.key) !== true);
+}
