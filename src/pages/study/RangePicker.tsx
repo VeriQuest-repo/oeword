@@ -135,7 +135,7 @@ export default function RangePicker({ onStart }: { onStart: (cards: StudyItem[])
           {bookId !== null && days.length > 0 && (
             <Panel>
               <h2 className="mb-3 text-lg font-semibold text-slate-800">방향</h2>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 {directions.map((d) => (
                   <ChoiceButton key={d.value} selected={direction === d.value} onClick={() => setDirection(d.value)}>
                     <span className="block break-words">{d.label}</span>
