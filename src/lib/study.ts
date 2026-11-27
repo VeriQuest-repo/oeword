@@ -74,3 +74,12 @@ export function assignDirections(
 export function wrongItems<T extends StudyCard>(items: readonly T[], result: ReadonlyMap<string, boolean>): T[] {
   return items.filter((item) => result.get(item.key) !== true);
 }
+
+/** 외우기 단계: 1 가리기(blind) → 2 객관식(choice) → 3 주관식(write). 아무 단계나 고를 수 있습니다 (11/27 결정). */
+export type StudyStage = "blind" | "choice" | "write";
+
+export const STAGES: { value: StudyStage; label: string; hint: string }[] = [
+  { value: "blind", label: "가리기", hint: "답을 가리고 떠올리기" },
+  { value: "choice", label: "객관식", hint: "보기 4개 중 고르기" },
+  { value: "write", label: "주관식", hint: "직접 적기" },
+];
