@@ -1,27 +1,31 @@
 import { useState } from "react";
-import { type StudyCard } from "../../lib/study";
+import { type StudyItem, wrongItems } from "../../lib/study";
 import FlashcardSession, { type SessionResult } from "./FlashcardSession";
 import RangePicker from "./RangePicker";
 import StudySummary from "./StudySummary";
 
-// 외우기 (#7): Day 범위 고르기 → 플래시카드(영→한) → 결과
+// 외우기 (#7): 범위·방향 고르기 → 플래시카드 → 틀린 단어가 없을 때까지 틀린 단어만 다시 → 결과
 type Step =
   | { kind: "pick" }
-  | { kind: "study"; cards: StudyCard[]; round: number }
-  | { kind: "done"; cards: StudyCard[]; result: SessionResult; round: number };
+  | { kind: "study"; all: StudyItem[]; cards: StudyItem[]; round: number }
+  | { kind: "done"; all: StudyItem[]; cards: StudyItem[]; result: SessionResult; round: number; stopped: boolean };
 
 export default function StudyPage() {
   const [step, setStep] = useState<Step>({ kind: "pick" });
 
   if (step.kind === "pick") {
-    return <RangePicker onStart={(cards) => setStep({ kind: "study", cards, round: 1 })} />;
+    return <RangePicker onStart={(cards) => setStep({ kind: "study", all: cards, cards, round: 1 })} />;
   }
   if (step.kind === "study") {
+    const finish = (result: SessionResult, stopped: boolean) =>
+      setStep({ kind: "done", all: step.all, cards: step.cards, result, round: step.round, stopped });
     return (
       <FlashcardSession
         key={step.round}
         cards={step.cards}
-        onFinish={(result) => setStep({ kind: "done", cards: step.cards, result, round: step.round })}
+        round={step.round}
+        onFinish={(result) => finish(result, false)}
+        onStop={(result) => finish(result, true)}
       />
     );
   }
@@ -29,7 +33,12 @@ export default function StudyPage() {
     <StudySummary
       cards={step.cards}
       result={step.result}
-      onRetry={(cards) => setStep({ kind: "study", cards, round: step.round + 1 })}
+      round={step.round}
+      stopped={step.stopped}
+      onRetryWrong={() =>
+        setStep({ kind: "study", all: step.all, cards: wrongItems(step.cards, step.result), round: step.round + 1 })
+      }
+      onRestart={() => setStep({ kind: "study", all: step.all, cards: step.all, round: 1 })}
       onPickAgain={() => setStep({ kind: "pick" })}
     />
   );

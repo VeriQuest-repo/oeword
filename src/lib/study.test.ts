@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { gradeEnKo } from "./grading";
-import { buildDeck, shuffle } from "./study";
+import { assignDirections, buildDeck, shuffle, wrongItems } from "./study";
 import type { DayWords } from "./words";
 
 function day(dayNumber: number, words: DayWords["words"]): DayWords {
@@ -60,5 +60,52 @@ describe("shuffle", () => {
     expect(result).toEqual([2, 3, 4, 5, 1]);
     expect(items).toEqual([1, 2, 3, 4, 5]);
     expect([...shuffle(items)].toString().length).toBe(items.toString().length);
+  });
+});
+
+describe("assignDirections", () => {
+  const cards = buildDeck([
+    day(1, [
+      { id: 1, text: "apple", senses: [{ pos: "명사", meanings: ["사과"] }] },
+      { id: 2, text: "give", senses: [{ pos: "동사", meanings: ["(~을) 주다"] }] },
+      { id: 3, text: "quick", senses: [{ pos: "형용사", meanings: ["빠른"] }] },
+      { id: 4, text: "run", senses: [{ pos: "동사", meanings: ["달리다"] }] },
+    ]),
+  ]);
+
+  it("한 방향을 고르면 모든 카드가 그 방향이다", () => {
+    expect(assignDirections(cards, "en_ko").map((c) => c.direction)).toEqual(["en_ko", "en_ko", "en_ko", "en_ko"]);
+    expect(assignDirections(cards, "ko_en").every((c) => c.direction === "ko_en")).toBe(true);
+  });
+
+  it("섞기는 5:5로 나누고 카드 순서는 그대로 둔다", () => {
+    let seed = 0.3;
+    const random = () => (seed = (seed * 9301 + 0.49297) % 1);
+    const items = assignDirections(cards, "mixed", random);
+    expect(items.map((c) => c.text)).toEqual(["apple", "give", "quick", "run"]);
+    expect(items.filter((c) => c.direction === "ko_en")).toHaveLength(2);
+  });
+
+  it("홀수 장이면 차이는 한 장뿐이다", () => {
+    const items = assignDirections(cards.slice(0, 3), "mixed", () => 0.1);
+    const koEn = items.filter((c) => c.direction === "ko_en").length;
+    expect(koEn === 1 || koEn === 2).toBe(true);
+  });
+});
+
+describe("wrongItems", () => {
+  it("맞힌 카드만 빼고 틀리거나 안 본 카드는 남긴다", () => {
+    const cards = buildDeck([
+      day(1, [
+        { id: 1, text: "apple", senses: [{ pos: "명사", meanings: ["사과"] }] },
+        { id: 2, text: "give", senses: [{ pos: "동사", meanings: ["주다"] }] },
+        { id: 3, text: "run", senses: [{ pos: "동사", meanings: ["달리다"] }] },
+      ]),
+    ]);
+    const result = new Map([
+      [cards[0]!.key, true],
+      [cards[1]!.key, false],
+    ]);
+    expect(wrongItems(cards, result).map((c) => c.text)).toEqual(["give", "run"]);
   });
 });

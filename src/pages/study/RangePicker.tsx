@@ -2,15 +2,22 @@ import { type ButtonHTMLAttributes, type ReactNode, useEffect, useState } from "
 import { api, errorMessage } from "../../api";
 import { ErrorText, Panel, PrimaryButton } from "../../components/ui";
 import { type BookDetail, type BookSummary, dayLabel } from "../../lib/books";
-import { buildDeck, shuffle, type StudyCard } from "../../lib/study";
+import { assignDirections, buildDeck, shuffle, type StudyDirection, type StudyItem } from "../../lib/study";
 
-// 외우기 범위 고르기: 단어장 → Day 여러 개 (#7)
-export default function RangePicker({ onStart }: { onStart: (cards: StudyCard[]) => void }) {
+const directions: { value: StudyDirection; label: string; hint: string }[] = [
+  { value: "en_ko", label: "영단어", hint: "영단어 보고 뜻 쓰기" },
+  { value: "ko_en", label: "뜻", hint: "뜻 보고 영단어 쓰기" },
+  { value: "mixed", label: "영단어/뜻", hint: "반반 섞어서" },
+];
+
+// 외우기 범위 고르기: 단어장 → Day 여러 개 → 방향 (#7)
+export default function RangePicker({ onStart }: { onStart: (cards: StudyItem[]) => void }) {
   const [books, setBooks] = useState<BookSummary[] | null>(null);
   const [bookId, setBookId] = useState<number | null>(null);
   const [detail, setDetail] = useState<BookDetail | null>(null);
   const [picked, setPicked] = useState<number[]>([]);
   const [mix, setMix] = useState(true);
+  const [direction, setDirection] = useState<StudyDirection>("en_ko");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,7 +64,7 @@ export default function RangePicker({ onStart }: { onStart: (cards: StudyCard[])
         setError("고른 Day에 단어가 없어요.");
         return;
       }
-      onStart(mix ? shuffle(deck) : deck);
+      onStart(assignDirections(mix ? shuffle(deck) : deck, direction));
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -69,7 +76,7 @@ export default function RangePicker({ onStart }: { onStart: (cards: StudyCard[])
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">외우기</h1>
-        <p className="mt-1 text-base text-slate-500">외울 Day를 고르고, 영단어를 보며 뜻을 떠올려 적어 보세요.</p>
+        <p className="mt-1 text-base text-slate-500">외울 Day와 방향을 고르고, 떠올려 적어 보세요.</p>
       </div>
 
       <ErrorText message={error} />
@@ -122,6 +129,20 @@ export default function RangePicker({ onStart }: { onStart: (cards: StudyCard[])
                   ))}
                 </div>
               )}
+            </Panel>
+          )}
+
+          {bookId !== null && days.length > 0 && (
+            <Panel>
+              <h2 className="mb-3 text-lg font-semibold text-slate-800">방향</h2>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {directions.map((d) => (
+                  <ChoiceButton key={d.value} selected={direction === d.value} onClick={() => setDirection(d.value)}>
+                    <span className="block break-words">{d.label}</span>
+                    <span className="block text-sm font-normal opacity-80">{d.hint}</span>
+                  </ChoiceButton>
+                ))}
+              </div>
             </Panel>
           )}
 
