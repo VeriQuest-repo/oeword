@@ -1,6 +1,7 @@
 import { OutlineButton, Panel, PrimaryButton } from "../../components/ui";
 import type { StudyItem, StudyStage } from "../../lib/study";
 import type { SessionResult } from "./FlashcardSession";
+import type { SaveState } from "./StudyPage";
 
 // 한 바퀴가 끝난 뒤 화면 (#7): 틀린 단어가 있으면 그 단어만 다시 외우게 하고,
 // 모두 맞히면 끝(완료)입니다. "그만하기"로 멈춘 경우는 완료가 아닙니다.
@@ -10,6 +11,7 @@ export default function StudySummary({
   result,
   round,
   stopped,
+  save,
   onRetryWrong,
   onRestart,
   onPickAgain,
@@ -19,6 +21,7 @@ export default function StudySummary({
   result: SessionResult;
   round: number;
   stopped: boolean;
+  save: SaveState;
   onRetryWrong: () => void;
   onRestart: () => void;
   onPickAgain: () => void;
@@ -94,6 +97,15 @@ export default function StudySummary({
         complete && (
           <Panel>
             <p className="text-lg text-slate-700">잘했어요! 다음 단계나 다른 방향으로도 해 보세요.</p>
+            {save !== "skip" && (
+              <p className={`mt-2 text-base ${typeof save === "object" ? "text-rose-600" : "text-slate-500"}`}>
+                {save === "saving"
+                  ? "완료 기록을 남기는 중…"
+                  : save === "saved"
+                    ? "완료 기록을 남겼어요. 외우기 화면의 Day에서 볼 수 있어요."
+                    : `완료 기록을 남기지 못했어요. ${save.error}`}
+              </p>
+            )}
           </Panel>
         )
       )}

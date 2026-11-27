@@ -83,3 +83,75 @@ export const STAGES: { value: StudyStage; label: string; hint: string }[] = [
   { value: "choice", label: "객관식", hint: "보기 4개 중 고르기" },
   { value: "write", label: "주관식", hint: "직접 적기" },
 ];
+
+/** Day 하나의 단계별 완료 횟수 (#44) */
+export type StageCounts = Record<StudyStage, number>;
+
+export const EMPTY_COUNTS: StageCounts = { blind: 0, choice: 0, write: 0 };
+
+/**
+ * 고른 Day 들에서 다음에 할 단계('추천')를 고릅니다.
+ * Day 마다 단계별 횟수를 보고, 가장 덜 한 Day 기준(최솟값)으로 가장 적게 한 단계를 고릅니다.
+ * 같으면 앞 단계(가리기 → 객관식 → 주관식)를 고릅니다. 아직 한 번도 안 했으면 가리기입니다.
+ */
+export function recommendStage(days: readonly StageCounts[], choiceAvailable = true): StudyStage {
+  const stages = STAGES.map((s) => s.value).filter((s) => choiceAvailable || s !== "choice");
+  let best = stages[0]!;
+  let bestCount = Infinity;
+  for (const stage of stages) {
+    const count = days.length === 0 ? 0 : Math.min(...days.map((d) => d[stage]));
+    if (count < bestCount) {
+      best = stage;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
+/** POST /api/study/completions 요청 */
+export interface CompletionInput {
+  stage: StudyStage;
+  direction: StudyDirection;
+  dayIds: number[];
+  wordCount: number;
+}
+
+/** GET /api/books/:bookId/study-records 응답 */
+export interface StudyRecords {
+  studentId: number;
+  days: ({ dayId: number } & StageCounts)[];
+}
+
+const STAGE_VALUES: readonly string[] = ["blind", "choice", "write"];
+const DIRECTION_VALUES: readonly string[] = ["en_ko", "ko_en", "mixed"];
+
+export function checkCompletionInput(
+  body: unknown,
+): { ok: true; value: CompletionInput } | { ok: false; message: string } {
+  if (typeof body !== "object" || body === null) return { ok: false, message: "완료 기록을 읽지 못했어요." };
+  const { stage, direction, dayIds, wordCount } = body as Record<string, unknown>;
+  if (typeof stage !== "string" || !STAGE_VALUES.includes(stage)) return { ok: false, message: "단계를 알 수 없어요." };
+  if (typeof direction !== "string" || !DIRECTION_VALUES.includes(direction)) {
+    return { ok: false, message: "방향을 알 수 없어요." };
+  }
+  if (
+    !Array.isArray(dayIds) ||
+    dayIds.length === 0 ||
+    dayIds.length > 100 ||
+    !dayIds.every((id) => Number.isSafeInteger(id) && id > 0)
+  ) {
+    return { ok: false, message: "Day를 알 수 없어요." };
+  }
+  if (!Number.isSafeInteger(wordCount) || (wordCount as number) < 1 || (wordCount as number) > 10000) {
+    return { ok: false, message: "단어 수를 알 수 없어요." };
+  }
+  return {
+    ok: true,
+    value: {
+      stage: stage as StudyStage,
+      direction: direction as StudyDirection,
+      dayIds: [...new Set(dayIds as number[])],
+      wordCount: wordCount as number,
+    },
+  };
+}

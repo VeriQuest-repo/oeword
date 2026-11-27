@@ -31,3 +31,10 @@ npx wrangler d1 migrations apply oeword --remote   # 배포 D1에 적용 (사람
 | `login_failure` | 가족 비밀번호를 틀린 시각 (짧은 시간에 여러 번 틀리면 잠시 막기) |
 
 데이터 모듈 테스트(`worker/db/*.test.ts`)는 Node 내장 SQLite에 이 폴더의 SQL을 그대로 적용해서 돌립니다.
+
+## 테이블 (0003_study_completion.sql)
+
+| 테이블 | 내용 |
+| --- | --- |
+| `study_completion` | 외우기 단계 완료 한 번 (학생, 단계 `blind`·`choice`·`write`, 방향, 단어 수, 시각) |
+| `study_completion_day` | 그 완료에 들어간 Day (Day별 완료 횟수는 이 표를 셈) |

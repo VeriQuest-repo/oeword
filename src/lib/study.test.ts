@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { gradeEnKo } from "./grading";
-import { assignDirections, buildDeck, shuffle, wrongItems } from "./study";
+import { assignDirections, buildDeck, checkCompletionInput, recommendStage, shuffle, wrongItems } from "./study";
 import type { DayWords } from "./words";
 
 function day(dayNumber: number, words: DayWords["words"]): DayWords {
@@ -107,5 +107,36 @@ describe("wrongItems", () => {
       [cards[1]!.key, false],
     ]);
     expect(wrongItems(cards, result).map((c) => c.text)).toEqual(["give", "run"]);
+  });
+});
+
+const c = (blind: number, choice: number, write: number) => ({ blind, choice, write });
+
+describe("recommendStage", () => {
+  it("처음이면 가리기, 앞 단계를 했으면 다음 단계를 추천한다", () => {
+    expect(recommendStage([])).toBe("blind");
+    expect(recommendStage([c(0, 0, 0)])).toBe("blind");
+    expect(recommendStage([c(1, 0, 0)])).toBe("choice");
+    expect(recommendStage([c(1, 1, 0)])).toBe("write");
+    expect(recommendStage([c(1, 1, 1)])).toBe("blind");
+  });
+  it("여러 Day 면 가장 덜 한 Day 기준으로 고른다", () => {
+    expect(recommendStage([c(2, 1, 1), c(0, 0, 0)])).toBe("blind");
+    expect(recommendStage([c(2, 2, 1), c(1, 0, 3)])).toBe("choice");
+  });
+  it("객관식을 못 하면 건너뛴다", () => {
+    expect(recommendStage([c(1, 0, 0)], false)).toBe("write");
+  });
+});
+
+describe("checkCompletionInput", () => {
+  it("정한 값만 받고 Day 중복은 하나로 줄인다", () => {
+    expect(checkCompletionInput({ stage: "write", direction: "mixed", dayIds: [3, 3, 4], wordCount: 5 })).toEqual({
+      ok: true,
+      value: { stage: "write", direction: "mixed", dayIds: [3, 4], wordCount: 5 },
+    });
+    expect(checkCompletionInput({ stage: "write", direction: "up", dayIds: [3], wordCount: 5 }).ok).toBe(false);
+    expect(checkCompletionInput({ stage: "write", direction: "en_ko", dayIds: [], wordCount: 5 }).ok).toBe(false);
+    expect(checkCompletionInput({ stage: "write", direction: "en_ko", dayIds: [1.5], wordCount: 5 }).ok).toBe(false);
   });
 });
