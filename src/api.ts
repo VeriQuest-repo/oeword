@@ -2,7 +2,7 @@
 import type { BookDetail, BookSummary, DaySummary } from "./lib/books";
 import type { SessionResponse, SetupInput } from "./lib/session";
 import type { CompletionInput, StudyRecords } from "./lib/study";
-import type { TestDetail, TestSubmitInput } from "./lib/test";
+import type { TestDetail, TestSubmitInput, TestSummary } from "./lib/test";
 import type { DayWords, WordInput, WordView } from "./lib/words";
 
 /** 서버가 돌려준 한국어 문구를 담은 오류. 화면에 그대로 보여 줍니다. */
@@ -74,8 +74,11 @@ export const api = {
   studyRecords: (bookId: number, studentId: number) =>
     request<StudyRecords>(`/api/books/${bookId}/study-records?studentId=${studentId}`, "GET"),
 
-  // 화면 시험 (#10)
+  // 화면 시험 (#10), 시험 기록 (#11)
   submitTest: (input: TestSubmitInput) => request<TestDetail>("/api/tests", "POST", input),
+  tests: (studentId: number) =>
+    request<{ studentId: number; tests: TestSummary[] }>(`/api/tests?studentId=${studentId}`, "GET"),
+  test: (testId: number) => request<TestDetail>(`/api/tests/${testId}`, "GET"),
 };
 
 /** 오류를 화면에 보여 줄 문구로 바꿉니다. */

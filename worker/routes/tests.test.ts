@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { addMember } from "../db/family";
 import { createTestDb } from "../db/testing/sqlite-d1";
 import { call, familyWithCookies, NOW } from "./testing/api";
 
@@ -155,5 +156,93 @@ describe("화면 시험 채점", () => {
       items: [{ wordId: give, direction: "en_ko", answer: {} }],
     };
     expect((await call(db, "/api/tests", { method: "POST", body })).status).toBe(401);
+  });
+});
+
+async function twoTests() {
+  const ctx = await setup();
+  const { db, student, d1, present, give } = ctx;
+  const submit = (answers: [Record<string, string>, Record<string, string>]) =>
+    call(db, "/api/tests", {
+      method: "POST",
+      cookie: student,
+      body: {
+        mode: "full",
+        direction: "en_ko",
+        firstLetterHint: false,
+        dayIds: [d1],
+        startedAt,
+        items: [
+          { wordId: present, direction: "en_ko", answer: answers[0] },
+          { wordId: give, direction: "en_ko", answer: answers[1] },
+        ],
+      },
+    });
+  const first = await submit([{ 명사: "선물", 형용사: "출석한" }, { 동사: "주는" }]);
+  const second = await submit([{ 명사: "사과" }, { 동사: "주다" }]);
+  return { ...ctx, first: first.body, second: second.body };
+}
+
+describe("시험 기록 (#11)", () => {
+  it("시험을 저장하면 단어별 기록(맞힌·틀린 횟수, 마지막 결과)이 쌓인다", async () => {
+    const { db, kid, present, give } = await twoTests();
+    const rows = await db
+      .prepare("SELECT word_id, correct_count, wrong_count, last_correct, last_seen_at FROM word_stat WHERE student_id = ? ORDER BY word_id")
+      .bind(kid.id)
+      .all();
+    expect(rows.results).toEqual([
+      { word_id: present, correct_count: 1, wrong_count: 1, last_correct: 0, last_seen_at: "2026-11-24T05:00:00Z" },
+      { word_id: give, correct_count: 1, wrong_count: 1, last_correct: 1, last_seen_at: "2026-11-24T05:00:00Z" },
+    ]);
+  });
+
+  it("지난 시험 목록과 결과를 다시 열 수 있다 (내 답과 단어장 뜻)", async () => {
+    const { db, student, first, second } = await twoTests();
+    const list = await call(db, "/api/tests", { cookie: student });
+    expect(list.status).toBe(200);
+    expect(list.body.tests.map((t: { testNumber: number }) => t.testNumber)).toEqual([2, 1]);
+    expect(list.body.tests[1]).toMatchObject({ id: first.id, correctCount: 1, total: 2, dayLabels: ["Day 1"], mode: "full" });
+
+    const detail = await call(db, `/api/tests/${second.id}`, { cookie: student });
+    expect(detail.status).toBe(200);
+    expect(detail.body).toMatchObject({ testNumber: 2, correctCount: 1, total: 2, dayLabels: ["Day 1"] });
+    expect(detail.body.items[0]).toMatchObject({ position: 1, text: "present", answer: { 명사: "사과" }, correct: false });
+    expect(detail.body.items[0].senseGrades[0]).toMatchObject({ pos: "명사", answer: "사과", correct: false, meanings: ["선물", "현재"] });
+  });
+
+  it("보호자는 아이 시험을 보고, 학생은 다른 학생 시험을 볼 수 없다", async () => {
+    const { db, guardian, kid, family, first } = await twoTests();
+    const list = await call(db, `/api/tests?studentId=${kid.id}`, { cookie: guardian });
+    expect(list.body.tests).toHaveLength(2);
+    expect((await call(db, `/api/tests/${first.id}`, { cookie: guardian })).status).toBe(200);
+
+    const other = await addMember(db, { familyId: family.id, name: "둘째", role: "student", sortOrder: 2 });
+    const login = await call(db, "/api/login", { method: "POST", body: { password: "family-pw" } });
+    await call(db, "/api/session/member", { method: "PUT", body: { memberId: other.id }, cookie: login.cookie! });
+    expect((await call(db, `/api/tests/${first.id}`, { cookie: login.cookie! })).status).toBe(403);
+    expect((await call(db, `/api/tests?studentId=${kid.id}`, { cookie: login.cookie! })).status).toBe(403);
+    expect((await call(db, "/api/tests/9999", { cookie: guardian })).status).toBe(404);
+  });
+
+  it("90문제 시험도 저장된다 (여러 줄을 묶어 넣기)", async () => {
+    const { db, guardian, student, d1 } = await setup();
+    const words = Array.from({ length: 90 }, (_, i) => ({ text: `word${i}`, senses: [{ pos: "명사", meanings: [`뜻${i}`] }] }));
+    const bulk = await call(db, `/api/days/${d1}/words/bulk`, { method: "POST", body: { words }, cookie: guardian });
+    const ids = bulk.body.words.map((w: { id: number }) => w.id) as number[];
+    const res = await call(db, "/api/tests", {
+      method: "POST",
+      cookie: student,
+      body: {
+        mode: "full",
+        direction: "ko_en",
+        firstLetterHint: true,
+        dayIds: [d1],
+        startedAt,
+        items: ids.map((wordId) => ({ wordId, direction: "ko_en", answer: "" })),
+      },
+    });
+    expect(res.status).toBe(201);
+    const count = await db.prepare("SELECT count(*) AS n FROM test_item").first<{ n: number }>();
+    expect(count?.n).toBe(ids.length);
   });
 });
