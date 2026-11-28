@@ -5,10 +5,11 @@ import type { MenuKey } from "../lib/permissions";
 import type { SessionResponse } from "../lib/session";
 import BooksPage from "./books/BooksPage";
 import StudyPage from "./study/StudyPage";
+import TestPage from "./test/TestPage";
 
 type Ready = Extract<SessionResponse, { state: "ready" }>;
 
-// 메뉴가 있는 화면. 단어장(#4~#6)·외우기(#7) 외의 메뉴 화면은 다음 이슈에서 만듭니다.
+// 메뉴가 있는 화면. 단어장(#4~#6)·외우기(#7)·시험(#10) 외의 메뉴 화면은 다음 이슈에서 만듭니다.
 export default function MainPage({
   session,
   onChange,
@@ -68,6 +69,8 @@ export default function MainPage({
           </section>
         ) : item?.key === "study" ? (
           <StudyPage member={session.member} members={session.members} />
+        ) : item?.key === "test" ? (
+          <TestPage member={session.member} />
         ) : item?.key === "books" && session.canManage ? (
           <BooksPage />
         ) : (

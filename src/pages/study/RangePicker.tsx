@@ -1,6 +1,6 @@
-import { type ButtonHTMLAttributes, type ReactNode, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { api, errorMessage } from "../../api";
-import { ErrorText, OutlineButton, Panel, PrimaryButton } from "../../components/ui";
+import { ChoiceButton, ErrorText, OutlineButton, Panel, PrimaryButton } from "../../components/ui";
 import { type BookDetail, type BookSummary, dayLabel } from "../../lib/books";
 import { CHOICE_COUNT } from "../../lib/choices";
 import type { MemberSummary } from "../../lib/session";
@@ -319,27 +319,6 @@ export default function RangePicker({
         </>
       )}
     </div>
-  );
-}
-
-function ChoiceButton({
-  selected,
-  children,
-  ...props
-}: { selected: boolean; children: ReactNode } & ButtonHTMLAttributes<HTMLButtonElement>) {
-  return (
-    <button
-      type="button"
-      aria-pressed={selected}
-      {...props}
-      className={`min-h-14 rounded-2xl border px-4 py-2 text-left text-base font-semibold disabled:opacity-40 ${
-        selected
-          ? "border-indigo-600 bg-indigo-600 text-white"
-          : "border-slate-300 bg-white text-slate-700 hover:border-indigo-400"
-      }`}
-    >
-      {children}
-    </button>
   );
 }
 

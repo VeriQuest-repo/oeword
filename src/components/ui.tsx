@@ -153,3 +153,25 @@ export function Panel({ children, className = "" }: { children: ReactNode; class
 /** 라벨 없이 쓰는 입력칸 (라벨은 aria-label 로). */
 export const inputClass =
   "block min-h-14 w-full min-w-0 rounded-2xl border border-slate-300 bg-white px-4 text-lg text-slate-900 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100";
+
+/** 여러 개 중 하나(또는 여러 개)를 고르는 큰 버튼. 고르면 진한 색으로 바뀝니다. */
+export function ChoiceButton({
+  selected,
+  children,
+  ...props
+}: { selected: boolean; children: ReactNode } & ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      {...props}
+      className={`min-h-14 rounded-2xl border px-4 py-2 text-left text-base font-semibold disabled:opacity-40 ${
+        selected
+          ? "border-indigo-600 bg-indigo-600 text-white"
+          : "border-slate-300 bg-white text-slate-700 hover:border-indigo-400"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
