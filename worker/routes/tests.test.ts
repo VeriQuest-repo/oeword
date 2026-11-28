@@ -246,3 +246,62 @@ describe("시험 기록 (#11)", () => {
     expect(count?.n).toBe(ids.length);
   });
 });
+
+describe("다시 볼 단어 (#12)", () => {
+  it("틀린 단어가 나오고, 다시 맞히면 빠진다. 오래 안 본 단어도 나온다", async () => {
+    const { db, student, kid, d1, d2, present, give, apple } = await setup();
+    const submit = (items: unknown[], dayIds = [d1]) =>
+      call(db, "/api/tests", {
+        method: "POST",
+        cookie: student,
+        body: { mode: "full", direction: "en_ko", firstLetterHint: false, dayIds, startedAt, items },
+      });
+    await submit([
+      { wordId: present, direction: "en_ko", answer: { 명사: "선물" } },
+      { wordId: give, direction: "en_ko", answer: { 동사: "주다" } },
+    ]);
+    // 오래전에 맞힌 단어
+    await db
+      .prepare("INSERT INTO word_stat (student_id, word_id, correct_count, wrong_count, last_correct, last_seen_at) VALUES (?, ?, 1, 0, 1, ?)")
+      .bind(kid.id, apple, "2026-11-01T00:00:00Z")
+      .run();
+
+    const res = await call(db, "/api/review-words", { cookie: student });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ studentId: kid.id, wrongCount: 1, oldCount: 1 });
+    expect(res.body.words.map((w: { text: string; reason: string }) => [w.text, w.reason])).toEqual([
+      ["present", "wrong"],
+      ["apple", "old"],
+    ]);
+    // 범위는 두 단어의 Day. present 는 Day 2 뜻까지 합쳐 나옴
+    expect(res.body.dayIds).toEqual([d1, d2]);
+    expect(res.body.words[0].senses.map((s: { pos: string }) => s.pos)).toEqual(["명사", "형용사", "동사"]);
+
+    // 다시 볼 단어로 시험 → 맞히면 빠짐
+    const review = await call(db, "/api/tests", {
+      method: "POST",
+      cookie: student,
+      body: {
+        mode: "review",
+        direction: "en_ko",
+        firstLetterHint: false,
+        dayIds: res.body.dayIds,
+        startedAt,
+        items: [
+          { wordId: res.body.words[0].wordId, direction: "en_ko", answer: { 명사: "선물", 형용사: "출석한", 동사: "주다" } },
+          { wordId: apple, direction: "en_ko", answer: { 명사: "사과" } },
+        ],
+      },
+    });
+    expect(review.body.correctCount).toBe(2);
+    const after = await call(db, "/api/review-words", { cookie: student });
+    expect(after.body.words).toEqual([]);
+  });
+
+  it("보호자는 아이의 다시 볼 단어를 본다", async () => {
+    const { db, guardian, kid } = await setup();
+    const res = await call(db, `/api/review-words?studentId=${kid.id}`, { cookie: guardian });
+    expect(res.status).toBe(200);
+    expect(res.body.words).toEqual([]);
+  });
+});

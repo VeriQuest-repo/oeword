@@ -158,6 +158,7 @@ export const inputClass =
 export function ChoiceButton({
   selected,
   children,
+  className = "",
   ...props
 }: { selected: boolean; children: ReactNode } & ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
@@ -169,7 +170,7 @@ export function ChoiceButton({
         selected
           ? "border-indigo-600 bg-indigo-600 text-white"
           : "border-slate-300 bg-white text-slate-700 hover:border-indigo-400"
-      }`}
+      } ${className}`}
     >
       {children}
     </button>

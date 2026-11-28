@@ -1,6 +1,7 @@
 // 화면에서 /api/* 를 부르는 함수 (화면 전용, 서버에서는 쓰지 않음). 로그인·구성원 선택 (#3).
 import type { BookDetail, BookSummary, DaySummary } from "./lib/books";
 import type { SessionResponse, SetupInput } from "./lib/session";
+import type { ReviewWords } from "./lib/review";
 import type { CompletionInput, StudyRecords } from "./lib/study";
 import type { TestDetail, TestSubmitInput, TestSummary } from "./lib/test";
 import type { DayWords, WordInput, WordView } from "./lib/words";
@@ -79,6 +80,8 @@ export const api = {
   tests: (studentId: number) =>
     request<{ studentId: number; tests: TestSummary[] }>(`/api/tests?studentId=${studentId}`, "GET"),
   test: (testId: number) => request<TestDetail>(`/api/tests/${testId}`, "GET"),
+  // 다시 볼 단어 (#12)
+  reviewWords: (studentId: number) => request<ReviewWords>(`/api/review-words?studentId=${studentId}`, "GET"),
 };
 
 /** 오류를 화면에 보여 줄 문구로 바꿉니다. */
