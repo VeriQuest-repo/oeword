@@ -25,14 +25,17 @@ export function Prompt({ card }: { card: StudyItem }) {
   );
 }
 
+/** 품사 표시: 뜻과 헷갈리지 않게 작은 회색 기울임 글씨로 (#49) */
+export function PosTag({ pos, className = "" }: { pos: string; className?: string }) {
+  return <span className={`shrink-0 text-base font-normal italic text-slate-500 ${className}`}>{pos}</span>;
+}
+
 function Meanings({ card, className = "" }: { card: StudyCard; className?: string }) {
   return (
     <ul className={`space-y-2 ${className}`}>
       {card.senses.map((s) => (
         <li key={s.pos} className="flex items-baseline gap-2 text-slate-900">
-          <span className="shrink-0 rounded-lg bg-slate-100 px-2 py-0.5 text-base font-semibold text-slate-700">
-            {s.pos}
-          </span>
+          <PosTag pos={s.pos} />
           <span className="min-w-0 break-words">{s.meanings.join(", ")}</span>
         </li>
       ))}
@@ -43,6 +46,8 @@ function Meanings({ card, className = "" }: { card: StudyCard; className?: strin
 /** 1단계 가리기: 답 칸을 누르면 보이고 다시 누르면 가려집니다. 학생이 '외움' / '못외움'을 직접 고릅니다. */
 export function BlindCard({ card, onNext }: { card: StudyItem; onNext: (correct: boolean) => void }) {
   const [shown, setShown] = useState(false);
+  // 답을 한 번이라도 열어 봐야 '외움' / '못외움'을 고를 수 있습니다 (#49).
+  const [revealed, setRevealed] = useState(false);
   return (
     <article className="rounded-3xl bg-white p-5 ring-1 ring-slate-200 sm:p-8 lg:grid lg:grid-cols-2 lg:gap-10">
       <Prompt card={card} />
@@ -50,7 +55,10 @@ export function BlindCard({ card, onNext }: { card: StudyItem; onNext: (correct:
         <button
           type="button"
           aria-pressed={shown}
-          onClick={() => setShown((v) => !v)}
+          onClick={() => {
+            setShown((v) => !v);
+            setRevealed(true);
+          }}
           className={`flex min-h-40 w-full items-center justify-center rounded-2xl border-2 px-4 py-6 text-center ${
             shown ? "border-indigo-300 bg-indigo-50" : "border-dashed border-slate-300 bg-slate-100"
           }`}
@@ -72,12 +80,14 @@ export function BlindCard({ card, onNext }: { card: StudyItem; onNext: (correct:
             <SpeakButton text={card.text} />
           </div>
         )}
-        <p className="text-center text-sm text-slate-400">{shown ? "다시 누르면 가려져요" : "떠올려 본 다음 눌러 보세요"}</p>
+        <p className={`text-center text-base ${revealed ? "text-slate-500" : "font-medium text-amber-700"}`}>
+          {shown ? "다시 누르면 가려져요" : revealed ? "떠올려 본 다음 눌러 보세요" : "떠올려 본 다음 먼저 답을 확인해 보세요"}
+        </p>
         <div className="grid grid-cols-2 gap-3">
-          <OutlineButton onClick={() => onNext(false)} className="min-h-16 text-xl">
+          <OutlineButton disabled={!revealed} onClick={() => onNext(false)} className="min-h-16 text-xl">
             못외움
           </OutlineButton>
-          <PrimaryButton type="button" onClick={() => onNext(true)} className="min-h-16 text-xl">
+          <PrimaryButton type="button" disabled={!revealed} onClick={() => onNext(true)} className="min-h-16 text-xl">
             외움
           </PrimaryButton>
         </div>
@@ -101,6 +111,11 @@ export function ChoiceCard({
   onNext: (correct: boolean) => void;
 }) {
   const options = useMemo(() => buildChoices(card, card.direction, range, extra), [card, range, extra]);
+  // 뜻 보기는 품사가 하나여도 품사를 붙이고, 품사와 뜻을 다른 글씨로 보여 주려고 단어 열쇠로 품사별 뜻을 찾습니다 (#49).
+  const sensesByKey = useMemo(
+    () => new Map([card, ...range, ...extra].map((c) => [c.key, c.senses] as const)),
+    [card, range, extra],
+  );
   const [picked, setPicked] = useState<string | null>(null);
   const nextButton = useRef<HTMLButtonElement>(null);
   const correct = picked === null ? null : options?.find((o) => o.key === picked)?.correct === true;
@@ -139,7 +154,18 @@ export function ChoiceCard({
                           : "border-slate-300 bg-white text-slate-800 hover:border-indigo-400"
                   }`}
                 >
-                  {o.label}
+                  {card.direction === "en_ko" && sensesByKey.get(o.key)?.length ? (
+                    <span className="block space-y-1">
+                      {sensesByKey.get(o.key)!.map((sn) => (
+                        <span key={sn.pos} className="flex items-baseline gap-2">
+                          <PosTag pos={sn.pos} className={state === "dim" ? "text-slate-300" : ""} />
+                          <span className="min-w-0 break-words">{sn.meanings.join(", ")}</span>
+                        </span>
+                      ))}
+                    </span>
+                  ) : (
+                    o.label
+                  )}
                 </button>
               );
             })}
