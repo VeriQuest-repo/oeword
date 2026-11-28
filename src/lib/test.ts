@@ -78,6 +78,26 @@ export interface TestDetail {
   items: TestItemResult[];
 }
 
+/** 시험 목록의 한 줄 (GET /api/tests 응답) */
+export interface TestSummary {
+  id: number;
+  testNumber: number;
+  mode: TestMode;
+  direction: TestDirection;
+  medium: "screen" | "paper";
+  createdAt: string;
+  finishedAt: string | null;
+  dayLabels: string[];
+  correctCount: number;
+  total: number;
+}
+
+/** Day 이름들. 단어장이 둘 이상이면 단어장 이름을 앞에 붙입니다. 예: ["Day 1", "Day 2"] */
+export function dayLabels(days: { dayNumber: number; bookId: number; bookTitle: string }[]): string[] {
+  const multiBook = new Set(days.map((d) => d.bookId)).size > 1;
+  return days.map((d) => (multiBook ? `${d.bookTitle} Day ${d.dayNumber}` : `Day ${d.dayNumber}`));
+}
+
 /** 문항 하나를 채점합니다. card 는 시험 범위에서 합친 단어(여러 Day 의 같은 단어는 뜻을 합침)입니다. */
 export function gradeItem(
   card: Pick<StudyCard, "text" | "senses">,

@@ -70,7 +70,7 @@ export default function MainPage({
         ) : item?.key === "study" ? (
           <StudyPage member={session.member} members={session.members} />
         ) : item?.key === "test" ? (
-          <TestPage member={session.member} />
+          <TestPage member={session.member} members={session.members} />
         ) : item?.key === "books" && session.canManage ? (
           <BooksPage />
         ) : (
