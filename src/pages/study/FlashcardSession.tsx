@@ -3,7 +3,7 @@ import { OutlineButton, PrimaryButton, SubtleButton } from "../../components/ui"
 import { useKeyboardInset } from "../../components/useKeyboardInset";
 import { gradeEnKo, gradeKoEn, type WordGrade } from "../../lib/grading";
 import type { StudyCard, StudyItem, StudyStage } from "../../lib/study";
-import { BlindCard, ChoiceCard } from "./StageCards";
+import { BlindCard, ChoiceCard, PosTag } from "./StageCards";
 
 /** 카드별 결과: 열쇠(wordKey) → 맞혔는지 */
 export type SessionResult = Map<string, boolean>;
@@ -38,6 +38,13 @@ export default function FlashcardSession({
   const correctCount = [...result.values()].filter(Boolean).length;
   useKeyboardInset();
 
+  // 가리기에서 잘못 누른 '외움' / '못외움'을 되돌립니다. 직전 카드로 돌아가 다시 고릅니다 (#49).
+  function undo() {
+    if (index === 0) return;
+    result.delete(cards[index - 1]!.key);
+    setIndex(index - 1);
+  }
+
   function next(correct: boolean) {
     result.set(card.key, correct);
     if (last) onFinish(result);
@@ -59,7 +66,10 @@ export default function FlashcardSession({
             </span>
           )}
         </p>
-        <SubtleButton onClick={() => onStop(result)}>그만하기</SubtleButton>
+        <div className="flex shrink-0 items-center gap-1">
+          {stage === "blind" && index > 0 && <SubtleButton onClick={undo}>되돌리기</SubtleButton>}
+          <SubtleButton onClick={() => onStop(result)}>그만하기</SubtleButton>
+        </div>
       </div>
       <div
         className="h-2 overflow-hidden rounded-full bg-slate-200"
@@ -247,9 +257,7 @@ function WordCard({
         <ul className="mt-3 space-y-2">
           {card.senses.map((s) => (
             <li key={s.pos} className="flex items-baseline gap-2 text-2xl text-slate-900 sm:text-3xl">
-              <span className="shrink-0 rounded-lg bg-slate-100 px-2 py-0.5 text-base font-semibold text-slate-700">
-                {s.pos}
-              </span>
+              <PosTag pos={s.pos} />
               <span className="min-w-0 break-words font-bold">{s.meanings.join(", ")}</span>
             </li>
           ))}
