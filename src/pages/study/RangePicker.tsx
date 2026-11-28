@@ -1,9 +1,10 @@
 import { type ButtonHTMLAttributes, type ReactNode, useEffect, useState } from "react";
 import { api, errorMessage } from "../../api";
-import { ErrorText, Panel, PrimaryButton } from "../../components/ui";
+import { ErrorText, OutlineButton, Panel, PrimaryButton } from "../../components/ui";
 import { type BookDetail, type BookSummary, dayLabel } from "../../lib/books";
 import { CHOICE_COUNT } from "../../lib/choices";
 import type { MemberSummary } from "../../lib/session";
+import type { DayWords } from "../../lib/words";
 import {
   assignDirections,
   buildDeck,
@@ -17,6 +18,7 @@ import {
   type StudyItem,
   type StudyStage,
 } from "../../lib/study";
+import WordListView from "./WordListView";
 
 export interface StudyPlan {
   stage: StudyStage;
@@ -61,6 +63,8 @@ export default function RangePicker({
   const [manual, setManual] = useState<{ key: string; stage: StudyStage } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // "목록으로 보기"로 연 Day 단어들 (#51). 돌아오면 고른 Day·방향·단계가 그대로 남습니다.
+  const [listDays, setListDays] = useState<DayWords[] | null>(null);
 
   useEffect(() => {
     api
@@ -147,6 +151,23 @@ export default function RangePicker({
       setLoading(false);
     }
   }
+
+  async function openList() {
+    setLoading(true);
+    setError(null);
+    try {
+      const list = await Promise.all(pickedDays.map((d) => api.dayWords(d.id)));
+      // oxlint-disable-next-line unicorn/no-array-sort
+      setListDays([...list].sort((a, b) => a.day.dayNumber - b.day.dayNumber));
+      window.scrollTo(0, 0);
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (listDays) return <WordListView days={listDays} onBack={() => setListDays(null)} />;
 
   return (
     <div className="space-y-6">
@@ -285,9 +306,14 @@ export default function RangePicker({
                 />
                 섞어서 보기
               </label>
-              <PrimaryButton type="button" disabled={picked.length === 0 || loading} onClick={start}>
-                {loading ? "준비하는 중…" : picked.length === 0 ? "Day를 골라 주세요" : `외우기 시작 (${wordCount}단어)`}
-              </PrimaryButton>
+              <div className="flex flex-col-reverse gap-3 sm:flex-row">
+                <OutlineButton disabled={picked.length === 0 || loading} onClick={openList} className="min-h-14 text-lg">
+                  목록으로 보기
+                </OutlineButton>
+                <PrimaryButton type="button" disabled={picked.length === 0 || loading} onClick={start}>
+                  {loading ? "준비하는 중…" : picked.length === 0 ? "Day를 골라 주세요" : `외우기 시작 (${wordCount}단어)`}
+                </PrimaryButton>
+              </div>
             </div>
           )}
         </>
