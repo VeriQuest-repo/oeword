@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { SpeakButton } from "../../components/SpeakButton";
 import { OutlineButton, PrimaryButton, SubtleButton } from "../../components/ui";
 import { useKeyboardInset } from "../../components/useKeyboardInset";
 import { gradeEnKo, gradeKoEn, type WordGrade } from "../../lib/grading";
@@ -136,6 +137,7 @@ function Flashcard({
         <h2 lang="en" className="mt-2 break-words text-4xl font-bold text-slate-900 sm:text-5xl lg:text-6xl">
           {card.text}
         </h2>
+        <SpeakButton text={card.text} className="mt-4" />
       </div>
 
       <form
@@ -314,6 +316,7 @@ function WordCard({
               <span lang="en" className="font-bold">
                 {card.text}
               </span>
+              <SpeakButton text={card.text} small className="ml-3 align-middle" />
             </p>
           )}
         </div>

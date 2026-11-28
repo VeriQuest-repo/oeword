@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { OutlineButton, PrimaryButton } from "../../components/ui";
+import { SpeakButton } from "../../components/SpeakButton";
 import { buildChoices } from "../../lib/choices";
 import type { StudyCard, StudyItem } from "../../lib/study";
 
@@ -11,9 +12,12 @@ export function Prompt({ card }: { card: StudyItem }) {
     <div className="text-center lg:sticky lg:top-6 lg:flex lg:min-h-72 lg:flex-col lg:items-center lg:justify-center lg:self-start lg:rounded-2xl lg:bg-slate-50 lg:p-8">
       <p className="text-sm text-slate-400">{card.days.join(" · ")}</p>
       {card.direction === "en_ko" ? (
-        <h2 lang="en" className="mt-2 break-words text-4xl font-bold text-slate-900 sm:text-5xl lg:text-6xl">
-          {card.text}
-        </h2>
+        <>
+          <h2 lang="en" className="mt-2 break-words text-4xl font-bold text-slate-900 sm:text-5xl lg:text-6xl">
+            {card.text}
+          </h2>
+          <SpeakButton text={card.text} className="mt-4" />
+        </>
       ) : (
         <Meanings card={card} className="mt-3 inline-block text-left text-2xl font-bold sm:text-3xl" />
       )}
@@ -71,6 +75,11 @@ export function BlindCard({ card, onNext }: { card: StudyItem; onNext: (correct:
             <span className="text-xl font-semibold text-slate-500">눌러서 답 보기</span>
           )}
         </button>
+        {shown && card.direction === "ko_en" && (
+          <div className="flex justify-center">
+            <SpeakButton text={card.text} />
+          </div>
+        )}
         <p className={`text-center text-base ${revealed ? "text-slate-500" : "font-medium text-amber-700"}`}>
           {shown ? "다시 누르면 가려져요" : revealed ? "떠올려 본 다음 눌러 보세요" : "떠올려 본 다음 먼저 답을 확인해 보세요"}
         </p>
