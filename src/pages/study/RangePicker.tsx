@@ -215,7 +215,7 @@ export default function RangePicker({
                     >
                       <span className="block break-words">{dayLabel(d)}</span>
                       <span className="block text-sm font-normal opacity-80">{d.wordCount}단어</span>
-                      {studentId !== null && <StageCountLine counts={countsOf(d.id)} />}
+                      {studentId !== null && <StageCountLine counts={countsOf(d.id)} selected={picked.includes(d.id)} />}
                     </ChoiceButton>
                   ))}
                 </div>
@@ -317,16 +317,17 @@ function ChoiceButton({
   );
 }
 
-/** Day 버튼 안의 단계별 완료 횟수 (#44) */
-function StageCountLine({ counts }: { counts: StageCounts }) {
+/** Day 버튼 안의 단계별 완료 횟수 (#44). 보호자도 한눈에 찾게 크고 진하게 보여 줍니다 (#49). */
+function StageCountLine({ counts, selected }: { counts: StageCounts; selected: boolean }) {
   return (
-    <span className="mt-1 block text-xs font-normal opacity-80">
-      {STAGES.map((st, i) => (
-        <span key={st.value}>
-          {i > 0 && " · "}
-          <span className="whitespace-nowrap">
-            {st.label} {counts[st.value]}
-          </span>
+    <span
+      className={`mt-2 flex flex-wrap gap-x-2 gap-y-0.5 rounded-lg px-2 py-1 text-sm font-medium ${
+        selected ? "bg-white/20 text-white" : "bg-slate-100 text-slate-800"
+      }`}
+    >
+      {STAGES.map((st) => (
+        <span key={st.value} className="whitespace-nowrap">
+          {st.label} <b className="text-base font-bold">{counts[st.value]}</b>
         </span>
       ))}
     </span>
