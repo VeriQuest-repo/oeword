@@ -56,7 +56,9 @@ export default function FlashcardSession({
     <div className="space-y-4 pb-[var(--keyboard-inset,0px)]">
       <div className="flex items-center justify-between gap-3">
         <p className="text-base font-medium text-slate-600" aria-live="polite">
-          {index + 1} / {cards.length}
+          <span className="whitespace-nowrap">
+            {index + 1} / {cards.length}
+          </span>
           <span className="ml-3 whitespace-nowrap text-slate-400">
             {stage === "blind" ? "외움" : "맞힘"} {correctCount}
           </span>
