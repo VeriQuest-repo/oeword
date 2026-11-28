@@ -37,6 +37,7 @@ describe("buildDeck", () => {
     expect(deck).toHaveLength(1);
     expect(deck[0]).toEqual({
       key: "present",
+      wordId: 1,
       text: "present",
       senses: [
         { pos: "명사", meanings: ["선물", "현재"] },

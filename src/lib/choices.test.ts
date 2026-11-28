@@ -5,6 +5,7 @@ import type { StudyCard } from "./study";
 function card(text: string, ...senses: [string, ...string[]][]): StudyCard {
   return {
     key: text.toLowerCase(),
+    wordId: 1,
     text,
     senses: senses.map(([pos, ...meanings]) => ({ pos, meanings })),
     days: ["Day 1"],

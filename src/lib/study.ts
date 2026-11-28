@@ -5,6 +5,8 @@ import { mergeSenses, type DayWords, type Sense, wordKey } from "./words";
 export interface StudyCard {
   /** 같은 단어인지 가르는 열쇠 (wordKey) */
   key: string;
+  /** 첫 번째로 나온 단어의 id (시험 문항 저장에 씀, #10) */
+  wordId: number;
   text: string;
   senses: Sense[];
   /** 이 단어가 들어 있는 Day 이름들. 예: ["Day 3", "Day 5"] */
@@ -29,7 +31,7 @@ export function buildDeck(days: DayWords[]): StudyCard[] {
         same.senses = mergeSenses(same.senses, word.senses);
         if (!same.days.includes(label)) same.days.push(label);
       } else {
-        deck.set(key, { key, text: word.text, senses: word.senses, days: [label] });
+        deck.set(key, { key, wordId: word.id, text: word.text, senses: word.senses, days: [label] });
       }
     }
   }
