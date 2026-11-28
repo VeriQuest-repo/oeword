@@ -3,6 +3,7 @@
 //                                보호자가 본 시험은 채점만 하고 저장하지 않습니다 (외우기와 같은 방식).
 //   GET  /api/tests?studentId=   지난 시험 목록 (최근 것부터)
 //   GET  /api/tests/:testId      시험 한 개의 결과 (내 답과 단어장 뜻)
+//   GET  /api/review-words?studentId=  다시 볼 단어 (#12): 틀린 단어 + 오래 안 본 단어
 //   학생은 자기 시험만, 보호자(또는 관리 권한)는 가족의 아이 시험을 봅니다.
 import { buildDeck, type StudyCard } from "../../src/lib/study";
 import {
@@ -19,10 +20,12 @@ import {
   type TestSummary,
 } from "../../src/lib/test";
 import { type DayWords, wordKey } from "../../src/lib/words";
-import { getMember } from "../db/family";
-import { createTest, getTest, listTestDays, listTestItems, listTests, type TestRow } from "../db/test";
+import { listWordsInDays } from "../db/book";
+import { getMember, getSettings } from "../db/family";
+import { createTest, getTest, listTestDays, listTestItems, listTests, listWordStats, type TestRow } from "../db/test";
+import { pickReviewWords, type ReviewCard, type ReviewWords } from "../../src/lib/review";
 import { dispatch, fail, json, readJson, requireActor, type Route } from "./http";
-import { dayWords } from "./words";
+import { wordView } from "./words";
 
 /** 시험 범위: Day 들의 단어를 합친 카드와, 단어 id → 카드 찾기 */
 export interface TestScope {
@@ -33,12 +36,12 @@ export interface TestScope {
 
 /** 가족 안의 Day 들로 시험 범위를 만듭니다. 없는(다른 가족의) Day 가 있으면 null. */
 export async function loadScope(db: D1Database, familyId: number, dayIds: number[]): Promise<TestScope | null> {
-  const days: DayWords[] = [];
-  for (const id of dayIds) {
-    const day = await dayWords(db, familyId, id);
-    if (!day) return null;
-    days.push(day);
-  }
+  const found = await listWordsInDays(db, familyId, dayIds);
+  if (found.days.length !== new Set(dayIds).size) return null;
+  const days: DayWords[] = found.days.map((d) => ({
+    day: { id: d.id, bookId: d.book_id, bookTitle: d.book_title, dayNumber: d.day_number, title: d.title },
+    words: found.words.filter((w) => w.day_id === d.id).map(wordView),
+  }));
   const deck = buildDeck(days);
   const byKey = new Map(deck.map((c) => [c.key, c]));
   const keyOf = new Map<number, string>();
@@ -204,6 +207,55 @@ export const TEST_ROUTES: Route[] = [
           correctCount: test.correct_count,
           total: test.total,
           items,
+        };
+        return json(body);
+      },
+    },
+  },
+  {
+    pattern: "/api/review-words",
+    methods: {
+      async GET(request, db, now) {
+        const actor = await requireActor(request, db, now);
+        if (actor instanceof Response) return actor;
+        const raw = new URL(request.url).searchParams.get("studentId");
+        const studentId = raw === null ? actor.member.id : Number(raw);
+        const denied = await checkStudent(db, actor, studentId);
+        if (denied) return denied;
+        const limit = (await getSettings(db, actor.familyId))?.question_count ?? 30;
+        const rows = await listWordStats(db, actor.familyId, studentId);
+        let picks = pickReviewWords(
+          rows.map((r) => ({
+            wordId: r.word_id,
+            key: wordKey(r.text),
+            dayId: r.day_id,
+            wrongCount: r.wrong_count,
+            lastCorrect: r.last_correct === 1,
+            lastSeenAt: r.last_seen_at!,
+          })),
+          now,
+          limit,
+        );
+        // 시험 범위(Day)는 100개까지 보낼 수 있어, 그 안에 드는 단어만 냅니다.
+        const dayIds: number[] = [];
+        picks = picks.filter((p) => {
+          const extra = p.dayIds.filter((id) => !dayIds.includes(id));
+          if (dayIds.length + extra.length > 100) return false;
+          dayIds.push(...extra);
+          return true;
+        });
+        const scope = await loadScope(db, actor.familyId, dayIds);
+        const words: ReviewCard[] = [];
+        for (const pick of picks) {
+          const card = scope?.cardOf(pick.wordIds[0]!);
+          if (card) words.push({ ...card, reason: pick.reason, lastSeenAt: pick.lastSeenAt });
+        }
+        const body: ReviewWords = {
+          studentId,
+          wrongCount: words.filter((w) => w.reason === "wrong").length,
+          oldCount: words.filter((w) => w.reason === "old").length,
+          dayIds: scope?.dayIds ?? [],
+          words,
         };
         return json(body);
       },

@@ -385,3 +385,57 @@ export async function addWords(
     ]),
   ]);
 }
+
+// 시험 범위 읽기 (#12) ------------------------------------------------------
+
+/** Day 하나와 단어장 이름 (여러 Day 를 한꺼번에 읽을 때) */
+export interface DayWithBook extends Day {
+  book_title: string;
+}
+
+/**
+ * 여러 Day 의 단어를 품사별 뜻과 함께 한꺼번에 읽습니다 (쿼리 3개). 가족 밖의 Day 는 빠집니다.
+ * 시험 범위·다시 볼 단어처럼 Day 가 많아도 D1 쿼리 수 한도(무료 50개)를 넘지 않게 합니다.
+ * dayIds 는 100개까지 받습니다.
+ */
+export async function listWordsInDays(
+  db: D1Database,
+  familyId: number,
+  dayIds: number[],
+): Promise<{ days: DayWithBook[]; words: WordWithMeanings[] }> {
+  if (dayIds.length === 0) return { days: [], words: [] };
+  const marks = dayIds.map(() => "?").join(", ");
+  const [days, words, meanings] = await db.batch([
+    db
+      .prepare(
+        `SELECT d.id, d.book_id, d.day_number, d.title, d.created_at, b.title AS book_title
+         FROM day d JOIN book b ON b.id = d.book_id
+         WHERE b.family_id = ? AND d.id IN (${marks}) ORDER BY b.sort_order, d.day_number`,
+      )
+      .bind(familyId, ...dayIds),
+    db
+      .prepare(
+        `SELECT w.id, w.day_id, w.text, w.sort_order, w.created_at FROM word w
+         JOIN day d ON d.id = w.day_id JOIN book b ON b.id = d.book_id
+         WHERE b.family_id = ? AND w.day_id IN (${marks}) ORDER BY w.day_id, w.sort_order, w.id`,
+      )
+      .bind(familyId, ...dayIds),
+    db
+      .prepare(
+        `SELECT m.id, m.word_id, m.pos, m.text, m.sort_order FROM meaning m
+         JOIN word w ON w.id = m.word_id JOIN day d ON d.id = w.day_id JOIN book b ON b.id = d.book_id
+         WHERE b.family_id = ? AND w.day_id IN (${marks}) ORDER BY m.word_id, m.sort_order, m.id`,
+      )
+      .bind(familyId, ...dayIds),
+  ]);
+  const byWord = new Map<number, Meaning[]>();
+  for (const m of meanings.results as unknown as Meaning[]) {
+    const list = byWord.get(m.word_id) ?? [];
+    list.push(m);
+    byWord.set(m.word_id, list);
+  }
+  return {
+    days: days.results as unknown as DayWithBook[],
+    words: (words.results as unknown as Word[]).map((w) => ({ ...w, meanings: byWord.get(w.id) ?? [] })),
+  };
+}

@@ -5,6 +5,7 @@ import type { MenuKey } from "../lib/permissions";
 import type { SessionResponse } from "../lib/session";
 import BooksPage from "./books/BooksPage";
 import StudyPage from "./study/StudyPage";
+import ReviewHomeCard from "./test/ReviewHomeCard";
 import TestPage from "./test/TestPage";
 
 type Ready = Extract<SessionResponse, { state: "ready" }>;
@@ -63,6 +64,11 @@ export default function MainPage({
           <section>
             <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">안녕하세요, {session.member.name}님</h1>
             <p className="mt-2 text-base text-slate-500">{session.family.name}</p>
+            {session.member.role === "student" && (
+              <div className="mt-6">
+                <ReviewHomeCard studentId={session.member.id} onOpen={() => setCurrent("test")} />
+              </div>
+            )}
             <p className="mt-6 rounded-2xl bg-white p-5 text-base text-slate-600 ring-1 ring-slate-200">
               오늘 할 일과 다음 학원 범위는 곧 여기에 보여요.
             </p>

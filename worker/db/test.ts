@@ -172,3 +172,30 @@ export async function listTestDays(
     .all<{ test_id: number; day_id: number; day_number: number; book_id: number; book_title: string }>();
   return results;
 }
+
+/** 한 학생의 단어별 기록 (보관하지 않은 단어장의 단어만). 다시 볼 단어(#12)에 씁니다. */
+export async function listWordStats(
+  db: D1Database,
+  familyId: number,
+  studentId: number,
+): Promise<
+  { word_id: number; text: string; day_id: number; wrong_count: number; last_correct: number | null; last_seen_at: string | null }[]
+> {
+  const { results } = await db
+    .prepare(
+      `SELECT ws.word_id, w.text, w.day_id, ws.wrong_count, ws.last_correct, ws.last_seen_at
+       FROM word_stat ws
+       JOIN word w ON w.id = ws.word_id JOIN day d ON d.id = w.day_id JOIN book b ON b.id = d.book_id
+       WHERE ws.student_id = ? AND b.family_id = ? AND b.archived_at IS NULL AND ws.last_seen_at IS NOT NULL`,
+    )
+    .bind(studentId, familyId)
+    .all<{
+      word_id: number;
+      text: string;
+      day_id: number;
+      wrong_count: number;
+      last_correct: number | null;
+      last_seen_at: string | null;
+    }>();
+  return results;
+}

@@ -6,6 +6,7 @@ import { shuffle } from "../../lib/study";
 import { isBlank, isoSeconds, type TestDetail, type TestQuestion } from "../../lib/test";
 import { wordKey } from "../../lib/words";
 import { clearDraft, loadDraft, saveDraft, type TestDraft, type TestPlan } from "./draft";
+import ReviewPanel from "./ReviewPanel";
 import TestHistory from "./TestHistory";
 import TestPicker from "./TestPicker";
 import TestResult from "./TestResult";
@@ -37,7 +38,7 @@ export function retryPlan(detail: TestDetail): TestPlan {
   };
 }
 
-// 시험 메뉴 (#10, #11): 보던 시험 · 새 시험 고르기 · 지난 시험 → 시험 → 한꺼번에 채점 → 결과
+// 시험 메뉴 (#10, #11, #12): 보던 시험 · 다시 볼 단어 · 새 시험 고르기 · 지난 시험 → 시험 → 한꺼번에 채점 → 결과
 export default function TestPage({ member, members }: { member: MemberSummary; members: MemberSummary[] }) {
   const students = members.filter((m) => m.role === "student");
   const [step, setStep] = useState<Step>({ kind: "home" });
@@ -157,6 +158,9 @@ export default function TestPage({ member, members }: { member: MemberSummary; m
           </div>
         </Panel>
       )}
+      {member.role === "student" && (
+        <ReviewPanel studentId={member.id} canTake title="다시 볼 단어" refreshKey={refreshKey} onStart={begin} />
+      )}
       <TestPicker member={member} onStart={begin} />
       {member.role !== "student" && students.length > 1 && (
         <Panel>
@@ -180,6 +184,15 @@ export default function TestPage({ member, members }: { member: MemberSummary; m
           }
           refreshKey={refreshKey}
           onOpen={openTest}
+        />
+      )}
+      {member.role !== "student" && historyOf !== null && (
+        <ReviewPanel
+          studentId={historyOf}
+          canTake={false}
+          title={`${students.find((st) => st.id === historyOf)?.name ?? "학생"}의 다시 볼 단어`}
+          refreshKey={refreshKey}
+          onStart={begin}
         />
       )}
     </div>
