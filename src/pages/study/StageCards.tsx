@@ -102,7 +102,7 @@ export function ChoiceCard({
   onNext: (correct: boolean) => void;
 }) {
   const options = useMemo(() => buildChoices(card, card.direction, range, extra), [card, range, extra]);
-  // 뜻 보기는 품사와 뜻을 다른 글씨로 보여 주려고 단어 열쇠로 품사별 뜻을 찾습니다 (#49).
+  // 뜻 보기는 품사가 하나여도 품사를 붙이고, 품사와 뜻을 다른 글씨로 보여 주려고 단어 열쇠로 품사별 뜻을 찾습니다 (#49).
   const sensesByKey = useMemo(
     () => new Map([card, ...range, ...extra].map((c) => [c.key, c.senses] as const)),
     [card, range, extra],
@@ -145,7 +145,7 @@ export function ChoiceCard({
                           : "border-slate-300 bg-white text-slate-800 hover:border-indigo-400"
                   }`}
                 >
-                  {card.direction === "en_ko" && (sensesByKey.get(o.key)?.length ?? 0) > 1 ? (
+                  {card.direction === "en_ko" && sensesByKey.get(o.key)?.length ? (
                     <span className="block space-y-1">
                       {sensesByKey.get(o.key)!.map((sn) => (
                         <span key={sn.pos} className="flex items-baseline gap-2">

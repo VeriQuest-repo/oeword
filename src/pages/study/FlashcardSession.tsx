@@ -57,18 +57,24 @@ export default function FlashcardSession({
       <div className="flex items-center justify-between gap-3">
         <p className="text-base font-medium text-slate-600" aria-live="polite">
           {index + 1} / {cards.length}
-          <span className="ml-3 text-slate-400">
+          <span className="ml-3 whitespace-nowrap text-slate-400">
             {stage === "blind" ? "외움" : "맞힘"} {correctCount}
           </span>
           {round > 1 && (
-            <span className="ml-3 text-amber-700">
+            <span className="ml-3 whitespace-nowrap text-amber-700">
               {stage === "blind" ? "못외움" : "틀린 단어"} 다시 · {round}번째
             </span>
           )}
         </p>
         <div className="flex shrink-0 items-center gap-1">
-          {stage === "blind" && index > 0 && <SubtleButton onClick={undo}>되돌리기</SubtleButton>}
-          <SubtleButton onClick={() => onStop(result)}>그만하기</SubtleButton>
+          {stage === "blind" && index > 0 && (
+            <SubtleButton onClick={undo}>
+              되돌리기
+            </SubtleButton>
+          )}
+          <SubtleButton onClick={() => onStop(result)}>
+            그만하기
+          </SubtleButton>
         </div>
       </div>
       <div
